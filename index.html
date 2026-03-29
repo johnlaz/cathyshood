@@ -1,0 +1,742 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="theme-color" content="#1565c0">
+<title>Cathy's Neighborhood v2.9</title>
+<link rel="manifest" href="manifest.json">
+
+<!-- PWA / iOS install icons -->
+<link rel="apple-touch-icon" sizes="180x180" href="icons/apple-touch-icon.png">
+<link rel="icon" type="image/png" sizes="32x32" href="icons/favicon-32.png">
+<link rel="icon" type="image/png" sizes="16x16" href="icons/favicon-16.png">
+
+<!-- iOS fullscreen behavior -->
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Cathy's World">
+
+<!-- Android / Chrome install -->
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="application-name" content="Cathy's World">
+
+<!-- Prevent phone number detection -->
+<meta name="format-detection" content="telephone=no">
+
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Nunito:wght@400;700;800;900&family=Fredoka+One&display=swap" rel="stylesheet">
+<style>
+/* ─────────────────────────────────────────
+   CATHY'S NEIGHBORHOOD v2.9
+   Image-map driven. Pan + pinch-zoom.
+   v2.1 — Music Lab added, CN.BASE path fix
+   v2.2 — Little Chef Kitchen live
+   v2.3 — New map, Garden zone added, all zones recalibrated
+   v2.4 — Toybox persistence fix, Pond & Pet Sanctuary live
+   v2.5 — All rooms built, navigation fixed (back/home)
+   v2.6 — Room illustrations embedded, glass UI panels
+   v2.7 — Full touch/click audit: zone double-fire, canvas timing, audio null-safety
+   v2.8 — Navigation splash fix, driveway 3-step wash, distinct drum sounds, robot assembly, SVG nails, mower image
+   v2.9 — PWA icons, .nojekyll, 404.html, apple-touch-icon, all GitHub Pages install requirements, driveway 3-step wash, distinct drum sounds, robot assembly, SVG nails, mower image
+───────────────────────────────────────── */
+:root {
+  --font-title:'Fredoka One',cursive;
+  --font-body:'Nunito',sans-serif;
+  --gold:#ffd700; --pink:#ff6eb4; --purple:#7c3aed;
+}
+*,*::before,*::after{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent;}
+html,body{width:100%;height:100%;overflow:hidden;background:#1a6bc7;font-family:var(--font-body);touch-action:none;user-select:none;}
+
+/* SPLASH */
+#splash{position:fixed;inset:0;z-index:2000;background:linear-gradient(160deg,#0d0f3c 0%,#1a3a8f 45%,#1e6abf 100%);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:20px;transition:opacity .7s ease;}
+#splash.out{opacity:0;pointer-events:none;}
+.ss-bg{position:absolute;inset:0;overflow:hidden;pointer-events:none;}
+.sstar{position:absolute;border-radius:50%;background:#fff;animation:stwinkle var(--d,2s) var(--dl,0s) ease-in-out infinite alternate;}
+@keyframes stwinkle{from{opacity:.1;transform:scale(.6)}to{opacity:1;transform:scale(1.3)}}
+.sp-logo{font-size:clamp(3rem,10vw,5rem);animation:logoPop 1s cubic-bezier(.34,1.56,.64,1) both;filter:drop-shadow(0 0 30px rgba(255,215,0,.7));}
+.sp-title{font-family:var(--font-title);font-size:clamp(2rem,7vw,3.5rem);color:var(--gold);text-shadow:0 0 40px rgba(255,215,0,.5),0 3px 0 rgba(0,0,0,.4);text-align:center;line-height:1.15;animation:logoPop 1s .15s cubic-bezier(.34,1.56,.64,1) both;}
+.sp-sub{font-size:clamp(.9rem,2.5vw,1.1rem);color:rgba(255,255,255,.75);font-weight:700;animation:fadeUp .7s .4s ease both;}
+.sp-btn{margin-top:8px;font-family:var(--font-title);font-size:clamp(1.1rem,3vw,1.4rem);color:#fff;background:none;border:2.5px solid rgba(255,110,180,.6);border-radius:50px;padding:14px 40px;cursor:pointer;animation:fadeUp .7s .7s ease both,btnPulse 2.2s 1.4s ease-in-out infinite;transition:background .2s,transform .15s;}
+.sp-btn:active{transform:scale(.96);background:rgba(255,110,180,.2);}
+@keyframes logoPop{from{opacity:0;transform:scale(.5) translateY(24px)}to{opacity:1;transform:none}}
+@keyframes fadeUp{from{opacity:0;transform:translateY(18px)}to{opacity:1;transform:none}}
+@keyframes btnPulse{0%,100%{box-shadow:0 0 0 0 rgba(255,110,180,.5)}50%{box-shadow:0 0 0 14px rgba(255,110,180,0)}}
+
+/* WORLD */
+#world-wrap{position:fixed;inset:0;overflow:hidden;cursor:grab;background:#1a6bc7;}
+#world-wrap:active{cursor:grabbing;}
+#world{position:absolute;transform-origin:0 0;will-change:transform;}
+
+/* MAP IMAGE */
+#map-img{display:block;width:2000px;height:1089px;image-rendering:auto;pointer-events:none;user-select:none;-webkit-user-drag:none;border-radius:18px;box-shadow:0 20px 80px rgba(0,0,0,.45),0 0 0 6px rgba(255,255,255,.15);}
+
+/* ZONES */
+.zone{position:absolute;border-radius:50%;cursor:pointer;background:rgba(255,255,255,0);border:3px solid rgba(255,255,255,0);transition:background .2s,border-color .2s,transform .15s;display:flex;align-items:center;justify-content:center;animation:zonePulse 3s ease-in-out infinite;}
+.zone:hover{background:rgba(255,255,255,.18);border-color:rgba(255,255,255,.55);transform:scale(1.06);}
+.zone:active{transform:scale(.94);}
+@keyframes zonePulse{0%,100%{box-shadow:0 0 0 0 rgba(255,255,255,0)}50%{box-shadow:0 0 0 12px rgba(255,255,255,.08)}}
+.zone:nth-child(1){animation-delay:0s}.zone:nth-child(2){animation-delay:.4s}.zone:nth-child(3){animation-delay:.8s}
+.zone:nth-child(4){animation-delay:1.2s}.zone:nth-child(5){animation-delay:1.6s}.zone:nth-child(6){animation-delay:2s}
+.zone:nth-child(7){animation-delay:2.4s}.zone:nth-child(8){animation-delay:2.8s}
+.zone-icon{font-size:2rem;opacity:0;transform:translateY(6px);transition:opacity .2s,transform .2s;pointer-events:none;filter:drop-shadow(0 2px 6px rgba(0,0,0,.6));}
+.zone:hover .zone-icon{opacity:1;transform:none;}
+.zone-label{position:absolute;bottom:-34px;left:50%;transform:translateX(-50%);font-family:var(--font-title);font-size:clamp(.7rem,2vw,.9rem);color:#fff;white-space:nowrap;background:rgba(0,0,0,.5);padding:4px 12px;border-radius:20px;border:1px solid rgba(255,255,255,.2);backdrop-filter:blur(4px);opacity:0;transition:opacity .2s;pointer-events:none;}
+.zone:hover .zone-label{opacity:1;}
+
+/* RIPPLE */
+.ripple{position:absolute;border-radius:50%;pointer-events:none;background:rgba(255,255,255,.45);transform:scale(0);opacity:1;animation:rippleOut .6s ease-out forwards;}
+@keyframes rippleOut{to{transform:scale(4);opacity:0}}
+
+/* STARBURST */
+.starburst{position:fixed;pointer-events:none;z-index:800;font-size:1.6rem;animation:starFly var(--dur,.8s) ease-out forwards;}
+@keyframes starFly{0%{transform:translate(0,0) scale(1);opacity:1}100%{transform:translate(var(--tx,0px),var(--ty,-80px)) scale(.3);opacity:0}}
+
+/* HUD */
+#hud{position:fixed;top:0;left:0;right:0;z-index:400;padding:max(env(safe-area-inset-top),10px) 14px 0;pointer-events:none;}
+.hud-bar{display:flex;align-items:center;justify-content:space-between;padding:9px 14px;background:rgba(10,20,60,.62);backdrop-filter:blur(14px);-webkit-backdrop-filter:blur(14px);border-radius:18px;border:1px solid rgba(255,255,255,.13);pointer-events:all;}
+.hud-title{font-family:var(--font-title);font-size:clamp(.9rem,2.5vw,1.15rem);color:var(--gold);text-shadow:0 0 12px rgba(255,215,0,.5);}
+.hud-right{display:flex;gap:8px;}
+.hud-btn{width:42px;height:42px;border-radius:13px;border:none;background:rgba(255,255,255,.1);border:1px solid rgba(255,255,255,.15);color:#fff;font-size:1.2rem;cursor:pointer;display:flex;align-items:center;justify-content:center;transition:background .2s,transform .15s;position:relative;}
+.hud-btn:active{transform:scale(.91);background:rgba(255,255,255,.2);}
+.hold-ring{position:absolute;inset:-4px;border-radius:17px;pointer-events:none;background:conic-gradient(var(--gold) 0deg,transparent 0deg);opacity:0;transition:opacity .2s;}
+.holding .hold-ring{opacity:1;}
+
+/* GREETING */
+#greeting{position:fixed;top:72px;left:50%;z-index:500;transform:translateX(-50%) translateY(-12px);background:linear-gradient(135deg,#ff6eb4,#c026d3);border-radius:22px;padding:11px 22px;font-family:var(--font-title);font-size:clamp(.9rem,2.5vw,1.1rem);color:#fff;text-shadow:0 1px 4px rgba(0,0,0,.3);box-shadow:0 8px 28px rgba(192,38,211,.45);border:2px solid rgba(255,255,255,.3);opacity:0;pointer-events:none;white-space:nowrap;max-width:88vw;text-align:center;transition:opacity .4s,transform .4s cubic-bezier(.34,1.4,.64,1);}
+#greeting.show{opacity:1;transform:translateX(-50%) translateY(0);}
+#greeting::before{content:'';position:absolute;top:-10px;left:50%;transform:translateX(-50%);border:9px solid transparent;border-bottom-color:#ff6eb4;border-top:none;}
+
+/* ZOOM */
+#zoom-wrap{position:fixed;right:14px;z-index:400;display:flex;flex-direction:column;gap:6px;bottom:156px;}
+.zoom-btn{width:38px;height:38px;border-radius:11px;border:none;background:rgba(10,20,60,.62);backdrop-filter:blur(10px);border:1px solid rgba(255,255,255,.15);color:#fff;font-size:1.1rem;cursor:pointer;display:flex;align-items:center;justify-content:center;transition:background .2s,transform .15s;}
+.zoom-btn:active{transform:scale(.9);}
+
+/* MINIMAP */
+#minimap{position:fixed;right:14px;bottom:156px;width:108px;height:60px;background:rgba(10,20,60,.65);backdrop-filter:blur(8px);border-radius:12px;border:1px solid rgba(255,255,255,.15);overflow:hidden;pointer-events:none;margin-bottom:52px;}
+#mm-vp{position:absolute;border:2px solid var(--gold);border-radius:3px;background:rgba(255,215,0,.12);transition:all .1s linear;}
+
+/* TOYBOX */
+#toybox{position:fixed;bottom:0;left:0;right:0;z-index:400;padding:0 14px max(env(safe-area-inset-bottom),10px);}
+.tb-inner{display:flex;align-items:center;gap:8px;padding:8px 14px;background:rgba(10,20,60,.62);backdrop-filter:blur(14px);border-radius:18px;border:1px solid rgba(255,255,255,.13);}
+.tb-lbl{font-family:var(--font-title);font-size:.8rem;color:rgba(255,255,255,.45);flex-shrink:0;}
+.slot{flex:1;min-width:0;height:48px;max-width:64px;border-radius:13px;background:rgba(255,255,255,.07);border:2px dashed rgba(255,255,255,.2);display:flex;align-items:center;justify-content:center;font-size:1.45rem;cursor:pointer;transition:all .2s;position:relative;}
+.slot.filled{background:rgba(255,255,255,.14);border-style:solid;border-color:rgba(255,255,255,.3);}
+.slot:active{transform:scale(.89);}
+.slot-n{position:absolute;bottom:2px;right:5px;font-size:.55rem;font-weight:900;color:rgba(255,255,255,.4);font-family:var(--font-body);}
+
+/* MODAL */
+#modal-bg{position:fixed;inset:0;z-index:600;background:rgba(0,0,0,0);pointer-events:none;transition:background .35s;display:flex;align-items:center;justify-content:center;}
+#modal-bg.open{background:rgba(5,10,40,.78);pointer-events:all;backdrop-filter:blur(10px);-webkit-backdrop-filter:blur(10px);}
+.modal-card{width:min(92vw,480px);max-height:88vh;border-radius:30px;overflow:hidden;transform:scale(.65) translateY(50px);opacity:0;transition:transform .42s cubic-bezier(.34,1.45,.64,1),opacity .28s ease;position:relative;display:flex;flex-direction:column;box-shadow:0 40px 90px rgba(0,0,0,.65),0 0 0 2px rgba(255,255,255,.12);}
+#modal-bg.open .modal-card{transform:none;opacity:1;}
+.modal-hdr{padding:30px 26px 20px;display:flex;flex-direction:column;align-items:center;gap:10px;}
+.modal-emoji{font-size:3.6rem;animation:mfloat 2.4s ease-in-out infinite alternate;filter:drop-shadow(0 4px 10px rgba(0,0,0,.35));}
+@keyframes mfloat{from{transform:translateY(0)}to{transform:translateY(-10px)}}
+.modal-title{font-family:var(--font-title);font-size:1.9rem;color:#fff;text-align:center;}
+.modal-tagline{font-size:.95rem;font-weight:700;color:rgba(255,255,255,.82);text-align:center;line-height:1.4;}
+.modal-body{padding:0 26px 18px;display:flex;flex-direction:column;gap:12px;overflow-y:auto;}
+.feat-row{display:flex;align-items:center;gap:13px;background:rgba(255,255,255,.13);border-radius:14px;padding:13px 15px;border:1px solid rgba(255,255,255,.14);}
+.feat-icon{font-size:1.55rem;flex-shrink:0;}
+.feat-text{font-weight:800;font-size:.92rem;color:#fff;line-height:1.25;}
+.feat-sub{font-size:.8rem;color:rgba(255,255,255,.68);margin-top:2px;}
+.coming-tag{display:flex;align-items:center;justify-content:center;gap:7px;background:rgba(255,255,255,.08);border:2px dashed rgba(255,255,255,.28);border-radius:13px;padding:13px;font-family:var(--font-title);font-size:1rem;color:rgba(255,255,255,.75);margin-top:2px;}
+.modal-ftr{padding:6px 26px 26px;}
+.enter-btn{width:100%;padding:17px;border-radius:18px;border:2px solid rgba(255,255,255,.35);background:rgba(255,255,255,.22);font-family:var(--font-title);font-size:1.25rem;color:#fff;cursor:pointer;letter-spacing:.02em;display:flex;align-items:center;justify-content:center;gap:8px;transition:background .2s,transform .15s;box-shadow:0 6px 20px rgba(0,0,0,.25);}
+.enter-btn:hover{background:rgba(255,255,255,.3);}
+.enter-btn:active{transform:scale(.97);}
+.close-btn{position:absolute;top:14px;right:14px;width:38px;height:38px;border-radius:50%;border:none;background:rgba(0,0,0,.28);color:#fff;font-size:1.2rem;cursor:pointer;display:flex;align-items:center;justify-content:center;border:1px solid rgba(255,255,255,.2);transition:background .2s,transform .15s;}
+.close-btn:hover{background:rgba(255,255,255,.18);transform:scale(1.08);}
+
+/* PARENT GATE */
+#parent-gate{position:fixed;inset:0;z-index:900;background:rgba(0,0,0,.88);backdrop-filter:blur(18px);display:flex;align-items:center;justify-content:center;opacity:0;pointer-events:none;transition:opacity .3s;}
+#parent-gate.open{opacity:1;pointer-events:all;}
+.pg-card{background:linear-gradient(145deg,#1a0533,#2d0a6e);border-radius:28px;padding:38px;width:min(90vw,400px);text-align:center;display:flex;flex-direction:column;gap:18px;align-items:center;border:2px solid rgba(192,132,252,.4);box-shadow:0 40px 80px rgba(0,0,0,.6);}
+.pg-title{font-family:var(--font-title);font-size:1.7rem;color:#c084fc;}
+.pg-sub{font-size:.9rem;color:rgba(255,255,255,.65);line-height:1.5;}
+.pg-btn{width:100%;padding:15px;border-radius:14px;border:none;font-family:var(--font-title);font-size:1.05rem;cursor:pointer;transition:transform .15s,filter .2s;}
+.pg-btn:active{transform:scale(.97);}
+.pg-btn.danger{background:linear-gradient(135deg,#c62828,#b71c1c);color:#fff;}
+.pg-btn.back{background:rgba(255,255,255,.1);color:rgba(255,255,255,.8);border:1px solid rgba(255,255,255,.2);}
+
+/* EDIT MODE */
+#editor-toggle{position:fixed;left:14px;bottom:90px;z-index:400;padding:8px 14px;border-radius:12px;border:none;background:rgba(10,20,60,.7);backdrop-filter:blur(8px);border:1px solid rgba(255,255,255,.15);color:rgba(255,255,255,.6);font-family:var(--font-body);font-size:.75rem;font-weight:700;cursor:pointer;transition:all .2s;letter-spacing:.04em;}
+#editor-toggle.active{background:rgba(255,200,0,.2);border-color:var(--gold);color:var(--gold);}
+body.edit-mode .zone{background:rgba(255,255,0,.18)!important;border-color:rgba(255,255,0,.7)!important;cursor:move!important;}
+body.edit-mode .zone-icon{opacity:1!important;transform:none!important;}
+body.edit-mode .zone-label{opacity:1!important;}
+
+/* TOYBOX SLOTS — match cn-core renderToyboxBar output */
+.tb-slot{flex:1;max-width:60px;height:48px;border-radius:13px;background:rgba(255,255,255,.07);border:2px dashed rgba(255,255,255,.2);display:flex;align-items:center;justify-content:center;cursor:pointer;position:relative;transition:all .2s;}
+.tb-slot.filled{background:rgba(255,255,255,.14);border-style:solid;border-color:rgba(255,255,255,.3);}
+.tb-slot:active{transform:scale(.88);}
+.tb-emoji{font-size:1.4rem;}
+.tb-num{position:absolute;bottom:2px;right:5px;font-size:.5rem;font-weight:900;color:rgba(255,255,255,.35);font-family:var(--font-body);}
+</style>
+</head>
+<body>
+
+<!-- SPLASH -->
+<div id="splash">
+  <div class="ss-bg" id="ssStars"></div>
+  <div class="sp-logo">🏘️</div>
+  <div class="sp-title">Cathy's<br>Neighborhood!</div>
+  <div class="sp-sub">A magical world just for you ✨</div>
+  <button class="sp-btn" onclick="startGame()">Let's Explore! 🌟</button>
+</div>
+
+<!-- WORLD -->
+<div id="world-wrap">
+  <div id="world">
+    <img id="map-img" src="CathysHood.png" alt="Cathy's Neighborhood"
+      onerror="this.src='https://placehold.co/2000x1089/1a6bc7/white?text=Add+CathysHood.png'">
+  </div>
+</div>
+
+<!-- HUD -->
+<div id="hud">
+  <div class="hud-bar">
+    <div class="hud-title">🌟 Cathy's Neighborhood <span style="font-size:.7em;opacity:.6">v2.9</span></div>
+    <div class="hud-right">
+      <button class="hud-btn" onclick="centerView()">🗺️</button>
+      <div class="hud-btn" id="home-btn"
+        onmousedown="holdStart(event)" onmouseup="holdEnd()" onmouseleave="holdEnd()"
+        ontouchstart="holdStart(event)" ontouchend="holdEnd()">
+        🏠<div class="hold-ring" id="holdRing"></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div id="greeting"></div>
+
+<div id="zoom-wrap">
+  <button class="zoom-btn" onclick="doZoom(+.12)">+</button>
+  <button class="zoom-btn" onclick="doZoom(-.12)">−</button>
+</div>
+
+<div id="minimap"><div id="mm-vp"></div></div>
+
+<div id="toybox">
+  <div class="tb-inner">
+    <div class="tb-lbl">🧸</div>
+    <div id="toybox-bar" style="display:flex;gap:8px;flex:1;"></div>
+  </div>
+</div>
+
+<button id="editor-toggle" onclick="toggleEdit()">✏️ EDIT ZONES</button>
+
+<!-- MODAL -->
+<div id="modal-bg" onclick="bgClick(event)">
+  <div class="modal-card" id="mCard">
+    <button class="close-btn" onclick="closeModal()">✕</button>
+    <div class="modal-hdr" id="mHdr"></div>
+    <div class="modal-body" id="mBody"></div>
+    <div class="modal-ftr">
+      <button class="enter-btn" onclick="enterRoom()">
+        <span id="enterLbl">Let's Go!</span> 🚀
+      </button>
+    </div>
+  </div>
+</div>
+
+<!-- PARENT GATE -->
+<div id="parent-gate">
+  <div class="pg-card">
+    <div style="font-size:2.8rem">🔐</div>
+    <div class="pg-title">Parent Settings</div>
+    <div class="pg-sub">You found the secret door!<br>What would you like to do?</div>
+    <button class="pg-btn danger" onclick="resetGame()">🔄 Reset All Progress</button>
+    <button class="pg-btn back"   onclick="closePG()">← Back to Play</button>
+  </div>
+</div>
+
+<!-- CN Core Engine — for live toybox persistence -->
+<script src="shared/cn-core.js"></script>
+<script>
+'use strict';
+
+/* ── ROOM DATA ───────────────────────────────────────────
+   cx/cy = center as % of 2000×1089 image
+   rx/ry = radii as % (ellipse hitbox)
+   Calibrated to the CathysHood.png layout.
+──────────────────────────────────────────────────────── */
+const ROOMS = [
+  {
+    // Main house body — lower-left facade, front door area
+    id:'home', label:"Cathy's Home", emoji:'🏡', icon:'🏠',
+    color:['#8d6e63','#5d4037'],
+    cx:21, cy:44, rx:11, ry:14,
+    tagline:"Cathy's cozy home base! 🌟",
+    features:[
+      {icon:'🛋️',text:'Living Room',sub:'Relax, play and hang out!'},
+      {icon:'🛏️',text:"Cathy's Bedroom",sub:'Your very own special room!'},
+    ],
+    entranceLabel:"Go Home!", stub:true
+  },
+  {
+    // Music Lab label sits left of house, ground-floor left windows
+    id:'music', label:'Music Lab', emoji:'🎵', icon:'🎸',
+    color:['#6a1b9a','#4a148c'],
+    cx:24, cy:30, rx:9, ry:10,
+    tagline:"Make beats, loops & songs! 🎸",
+    features:[
+      {icon:'🥁',text:'Drum Machine',sub:'Tap the pads to lay down your beat!'},
+      {icon:'🎸',text:'Loop Launcher',sub:'Layer real guitar recordings!'},
+      {icon:'🎹',text:'Mini Keyboard',sub:'Play melodies with one finger!'},
+      {icon:'🎤',text:'Sing Along',sub:'Record your very own voice!'},
+    ],
+    entranceLabel:"Make Music!", stub:false
+  },
+  {
+    // Salon = turret tower, upper-right of house
+    id:'salon', label:'Royal Salon', emoji:'💇‍♀️', icon:'✂️',
+    color:['#e91e8c','#880e4f'],
+    cx:38, cy:13, rx:7, ry:11,
+    tagline:"Style, glam & sparkle! 💅",
+    features:[
+      {icon:'🖌️',text:'Magic Hair Brush',sub:'Add color streaks with one swipe!'},
+      {icon:'💅',text:'Glitter Station',sub:'Nails, gems & sparkles!'},
+      {icon:'🪞',text:'Big Mirror',sub:'See your stunning look!'},
+    ],
+    entranceLabel:"Get Glamorous!", stub:false
+  },
+  {
+    // Kitchen = open structure top-right
+    id:'kitchen', label:"Little Chef's Kitchen", emoji:'🍳', icon:'👩‍🍳',
+    color:['#e65100','#bf360c'],
+    cx:78, cy:23, rx:13, ry:17,
+    tagline:"Cook, bake & blend yummy things! 🧁",
+    features:[
+      {icon:'🎂',text:'Bake a Cake',sub:'Watch it rise in the oven!'},
+      {icon:'🥤',text:'Magic Blender',sub:'Mix colors to make new flavors!'},
+      {icon:'🍪',text:'Cookie Time',sub:'Bake treats for your pets!'},
+    ],
+    entranceLabel:"Start Cooking!", stub:false
+  },
+  {
+    // Red barn, left side
+    id:'garage', label:'The Garage & 3D Print Lab', emoji:'🔧', icon:'🛠️',
+    color:['#b71c1c','#7f0000'],
+    cx:13, cy:64, rx:12, ry:17,
+    tagline:"Fix it, build it, print it! 🔩",
+    features:[
+      {icon:'🔩',text:'Junior Fix-It Shop',sub:'Drill, hammer & repair stuff!'},
+      {icon:'🖨️',text:'3D Print Lab',sub:'Swipe to scrape your creation!'},
+      {icon:'🪛',text:'Tool Wall',sub:'Every tool has its place!'},
+    ],
+    entranceLabel:"Get to Work!", stub:false
+  },
+  {
+    // Tesla + Hummer + charger, center-lower
+    id:'driveway', label:'The Driveway', emoji:'⚡', icon:'🚗',
+    color:['#0277bd','#01579b'],
+    cx:44, cy:70, rx:16, ry:17,
+    tagline:"Wash, charge & zoom zoom zoom! 🚙",
+    features:[
+      {icon:'🚿',text:'Power Washer',sub:'Spray off dirt to reveal the color!'},
+      {icon:'⚡',text:'EV Charger',sub:'Plug in & watch the battery fill!'},
+      {icon:'🏎️',text:'Tesla & Hummer',sub:'Two very cool rides!'},
+    ],
+    entranceLabel:"Wash the Cars!", stub:false
+  },
+  {
+    // Pond + elephant + dog, center-right
+    id:'pond', label:'Pond & Pet Sanctuary', emoji:'🐘', icon:'🐾',
+    color:['#2e7d32','#1b5e20'],
+    cx:65, cy:57, rx:13, ry:16,
+    tagline:"All the animals need your love! 🐾",
+    features:[
+      {icon:'🐘',text:'Elephant Friend',sub:'Splash in the pond together!'},
+      {icon:'🐶',text:'Feed the Puppy',sub:'Drag food to the hungry doggo!'},
+      {icon:'🌊',text:'Lily Pond',sub:'Tap to make ripples & bubbles!'},
+    ],
+    entranceLabel:"Visit the Animals!", stub:false
+  },
+  {
+    // Mower only — sits right of pond, labeled "ZT1 50 MOWER"
+    id:'mower', label:'Cub Cadet ZT1 50', emoji:'🚜', icon:'🚜',
+    color:['#33691e','#1b5e20'],
+    cx:80, cy:60, rx:8, ry:10,
+    tagline:"Mow the whole yard! 🌾",
+    features:[
+      {icon:'🚜',text:'Cub Cadet ZT1 50',sub:'Hop on and mow the whole yard!'},
+      {icon:'🌿',text:'Grass Patterns',sub:'Make cool stripe designs!'},
+    ],
+    entranceLabel:"Start Mowing!", stub:false
+  },
+  {
+    // Garden veggie patches — far right, labeled "GARDEN"
+    id:'garden', label:'The Garden', emoji:'🥕', icon:'🌱',
+    color:['#558b2f','#33691e'],
+    cx:88, cy:43, rx:8, ry:12,
+    tagline:"Grow yummy fruits and veggies! 🥦",
+    features:[
+      {icon:'🥕',text:'Veggie Patch',sub:'Plant seeds and watch them grow!'},
+      {icon:'🌻',text:'Flower Beds',sub:'Pick flowers for the house!'},
+      {icon:'💧',text:'Watering Can',sub:'Keep your plants happy!'},
+    ],
+    entranceLabel:"Start Gardening!", stub:false
+  },
+  {
+    // Crane + ABC blocks, bottom-right corner
+    id:'construction', label:'Alphabet Construction', emoji:'🏗️', icon:'🅰️',
+    color:['#f57f17','#e65100'],
+    cx:89, cy:77, rx:10, ry:13,
+    tagline:"Build words, learn letters! 🔡",
+    features:[
+      {icon:'🏗️',text:'Big Crane',sub:'Lift and stack the letter blocks!'},
+      {icon:'🧱',text:'A B C Blocks',sub:'Spell your name and more!'},
+      {icon:'📚',text:'Word Builder',sub:'Stack letters to make words!'},
+    ],
+    entranceLabel:"Start Building!", stub:false
+  },
+];
+
+/* ── STATE ─────────────────────────────────────────────── */
+const IMG_W=2000, IMG_H=1089;
+const MIN_Z=.22, MAX_Z=2.2;
+let S={z:.5,px:0,py:0,dragging:false,lx:0,ly:0,ld:0,
+       activeRoom:null,toybox:[null,null,null,null,null],
+       holdIval:null,holdPct:0,greetTimer:null,editMode:false};
+
+/* ── SPLASH ─────────────────────────────────────────────── */
+(function buildStars(){
+  const c=document.getElementById('ssStars');
+  for(let i=0;i<70;i++){
+    const d=document.createElement('div');
+    const sz=Math.random()*4+1;
+    d.className='sstar';
+    d.style.cssText=`left:${Math.random()*100}%;top:${Math.random()*100}%;width:${sz}px;height:${sz}px;--d:${(Math.random()*2.5+.8).toFixed(1)}s;--dl:${(Math.random()*3).toFixed(1)}s;`;
+    c.appendChild(d);
+  }
+})();
+
+function startGame(){
+  sessionStorage.setItem('cn_visited','1');
+  document.getElementById('splash').classList.add('out');
+  setTimeout(()=>{
+    document.getElementById('splash').style.display='none';
+    showGreet(timeGreet());
+  },700);
+}
+
+/* ── WORLD INIT ─────────────────────────────────────────── */
+function initWorld(){
+  const world=document.getElementById('world');
+  ROOMS.forEach((r,idx)=>{
+    const el=document.createElement('div');
+    el.className='zone';
+    el.id='z_'+r.id;
+    el.dataset.rid=r.id;
+    el.style.animationDelay=(idx*.4)+'s';
+    el.innerHTML=`<span class="zone-icon">${r.icon}</span><span class="zone-label">${r.label}</span>`;
+    placeZone(el,r);
+    // Use pointerup only - avoids touch+click double-fire on mobile
+    el.addEventListener('pointerdown', e=>{ e.currentTarget._moved=false; });
+    el.addEventListener('pointermove', e=>{ e.currentTarget._moved=true; });
+    el.addEventListener('pointerup', e=>{
+      if(e.currentTarget._moved) return; // was a drag, not a tap
+      if(!S.editMode){ e.preventDefault(); zClick(r,e); }
+    });
+    el.addEventListener('touchstart',e=>editDragStart(e,r),{passive:true});
+    world.appendChild(el);
+  });
+  centerView();
+}
+
+function placeZone(el,r){
+  const x=r.cx/100*IMG_W, y=r.cy/100*IMG_H;
+  const rx=r.rx/100*IMG_W, ry=r.ry/100*IMG_H;
+  el.style.left=(x-rx)+'px';
+  el.style.top=(y-ry)+'px';
+  el.style.width=(rx*2)+'px';
+  el.style.height=(ry*2)+'px';
+}
+
+/* ── TRANSFORM ──────────────────────────────────────────── */
+function applyXform(){
+  document.getElementById('world').style.transform=
+    `translate(${S.px}px,${S.py}px) scale(${S.z})`;
+  updateMM();
+}
+
+function clamp(){
+  const vw=window.innerWidth,vh=window.innerHeight;
+  const sw=IMG_W*S.z,sh=IMG_H*S.z;
+  const mx=Math.min(vw*.2,120),my=Math.min(vh*.2,100);
+  S.px=Math.min(mx,Math.max(vw-sw-mx,S.px));
+  S.py=Math.min(my,Math.max(vh-sh-my,S.py));
+}
+
+function centerView(){
+  const vw=window.innerWidth,vh=window.innerHeight;
+  S.z=Math.min(MAX_Z,Math.max(MIN_Z,Math.min((vw-28)/IMG_W,(vh-110)/IMG_H)));
+  S.px=(vw-IMG_W*S.z)/2;
+  S.py=(vh-IMG_H*S.z)/2;
+  clamp(); applyXform();
+}
+
+function doZoom(d){
+  const vw=window.innerWidth,vh=window.innerHeight;
+  const oz=S.z;
+  S.z=Math.min(MAX_Z,Math.max(MIN_Z,S.z+d));
+  S.px=vw/2-(vw/2-S.px)*(S.z/oz);
+  S.py=vh/2-(vh/2-S.py)*(S.z/oz);
+  clamp(); applyXform();
+}
+
+/* ── INPUT ──────────────────────────────────────────────── */
+function setupInput(){
+  const w=document.getElementById('world-wrap');
+
+  w.addEventListener('mousedown',e=>{
+    if(e.target.closest('.zone')||e.target.closest('.hud-btn')) return;
+    S.dragging=true; S.lx=e.clientX; S.ly=e.clientY;
+  });
+  window.addEventListener('mousemove',e=>{
+    if(!S.dragging) return;
+    S.px+=e.clientX-S.lx; S.py+=e.clientY-S.ly;
+    S.lx=e.clientX; S.ly=e.clientY;
+    clamp(); applyXform();
+  });
+  window.addEventListener('mouseup',()=>S.dragging=false);
+
+  w.addEventListener('touchstart',e=>{
+    if(e.target.closest('.zone')) return;
+    if(e.touches.length===1){S.dragging=true;S.lx=e.touches[0].clientX;S.ly=e.touches[0].clientY;}
+    else if(e.touches.length===2){S.dragging=false;S.ld=tDist(e.touches);}
+  },{passive:true});
+
+  w.addEventListener('touchmove',e=>{
+    if(e.touches.length===1&&S.dragging){
+      S.px+=e.touches[0].clientX-S.lx; S.py+=e.touches[0].clientY-S.ly;
+      S.lx=e.touches[0].clientX; S.ly=e.touches[0].clientY;
+      clamp(); applyXform();
+    } else if(e.touches.length===2){
+      const nd=tDist(e.touches);
+      const vw=window.innerWidth,vh=window.innerHeight;
+      const mx=(e.touches[0].clientX+e.touches[1].clientX)/2;
+      const my=(e.touches[0].clientY+e.touches[1].clientY)/2;
+      const oz=S.z;
+      S.z=Math.min(MAX_Z,Math.max(MIN_Z,S.z*(nd/S.ld)));
+      S.px=mx-(mx-S.px)*(S.z/oz);
+      S.py=my-(my-S.py)*(S.z/oz);
+      S.ld=nd; clamp(); applyXform();
+    }
+  },{passive:true});
+
+  w.addEventListener('touchend',()=>{ if(!S.editDrag) S.dragging=false; });
+
+  w.addEventListener('wheel',e=>{
+    e.preventDefault();
+    const oz=S.z;
+    S.z=Math.min(MAX_Z,Math.max(MIN_Z,S.z+(e.deltaY<0?.1:-.1)));
+    S.px=e.clientX-(e.clientX-S.px)*(S.z/oz);
+    S.py=e.clientY-(e.clientY-S.py)*(S.z/oz);
+    clamp(); applyXform();
+  },{passive:false});
+}
+
+function tDist(t){const dx=t[0].clientX-t[1].clientX,dy=t[0].clientY-t[1].clientY;return Math.sqrt(dx*dx+dy*dy);}
+
+/* ── MINIMAP ────────────────────────────────────────────── */
+function updateMM(){
+  const mm=document.getElementById('minimap');
+  const mW=mm.offsetWidth,mH=mm.offsetHeight;
+  const sx=mW/IMG_W,sy=mH/IMG_H;
+  const vw=window.innerWidth,vh=window.innerHeight;
+  const vp=document.getElementById('mm-vp');
+  vp.style.left=Math.max(0,-S.px/S.z*sx)+'px';
+  vp.style.top=Math.max(0,-S.py/S.z*sy)+'px';
+  vp.style.width=Math.min(mW,vw/S.z*sx)+'px';
+  vp.style.height=Math.min(mH,vh/S.z*sy)+'px';
+}
+
+/* ── ZONE CLICK ─────────────────────────────────────────── */
+function zClick(room,e){
+  // Ripple effect on the zone
+  const el=document.getElementById('z_'+room.id);
+  const rip=document.createElement('div');
+  rip.className='ripple';
+  rip.style.cssText='width:100%;height:100%;left:0;top:0;';
+  el.appendChild(rip);
+  setTimeout(()=>rip.remove(),700);
+
+  // Star burst from tap point
+  const cx=e.changedTouches?e.changedTouches[0].clientX:e.clientX;
+  const cy=e.changedTouches?e.changedTouches[0].clientY:e.clientY;
+  spawnStars(cx,cy,7);
+
+  if(navigator.vibrate) navigator.vibrate([12,8,12]);
+  openModal(room);
+}
+
+function spawnStars(x,y,n){
+  const emojis=['⭐','🌟','✨','💫','🌸','💥','🎉'];
+  for(let i=0;i<n;i++){
+    const el=document.createElement('div');
+    el.className='starburst';
+    el.textContent=emojis[Math.floor(Math.random()*emojis.length)];
+    const a=Math.random()*Math.PI*2,d=50+Math.random()*70;
+    el.style.cssText=`left:${x}px;top:${y}px;--tx:${Math.cos(a)*d}px;--ty:${Math.sin(a)*d-40}px;--dur:${(.5+Math.random()*.5).toFixed(2)}s;animation-delay:${(Math.random()*.15).toFixed(2)}s;`;
+    document.body.appendChild(el);
+    setTimeout(()=>el.remove(),1100);
+  }
+}
+
+/* ── MODAL ──────────────────────────────────────────────── */
+function openModal(room){
+  S.activeRoom=room;
+  document.getElementById('mCard').style.background=
+    `linear-gradient(150deg,${room.color[0]},${room.color[1]})`;
+  document.getElementById('mHdr').innerHTML=`
+    <div class="modal-emoji">${room.emoji}</div>
+    <div class="modal-title">${room.label}</div>
+    <div class="modal-tagline">${room.tagline}</div>`;
+  document.getElementById('mBody').innerHTML=
+    room.features.map(f=>`
+      <div class="feat-row">
+        <div class="feat-icon">${f.icon}</div>
+        <div><div class="feat-text">${f.text}</div><div class="feat-sub">${f.sub}</div></div>
+      </div>`).join('')
+    +(room.stub?'<div class="coming-tag">🚧 Coming soon — building this room! 🚧</div>':'');
+  document.getElementById('enterLbl').textContent=room.stub?'Peek Inside!':(room.entranceLabel||"Let's Go!");
+  document.getElementById('modal-bg').classList.add('open');
+}
+
+function closeModal(){document.getElementById('modal-bg').classList.remove('open');S.activeRoom=null;}
+function bgClick(e){if(e.target===document.getElementById('modal-bg')) closeModal();}
+
+function enterRoom(){
+  const r=S.activeRoom; if(!r) return;
+  if(r.stub){
+    closeModal();
+    showGreet("Coming soon! We're building this! 🚧");
+    spawnStars(window.innerWidth/2,window.innerHeight/2,12);
+    return;
+  }
+  window.location.href=`rooms/${r.id}/index.html`;
+}
+
+/* ── PARENT GATE ────────────────────────────────────────── */
+function holdStart(e){
+  e.preventDefault();
+  S.holdPct=0;
+  const ring=document.getElementById('holdRing');
+  document.getElementById('home-btn').classList.add('holding');
+  S.holdIval=setInterval(()=>{
+    S.holdPct+=100/30;
+    ring.style.background=`conic-gradient(var(--gold) ${S.holdPct*3.6}deg,transparent ${S.holdPct*3.6}deg)`;
+    if(S.holdPct>=100){holdEnd();openPG();}
+  },100);
+}
+function holdEnd(){
+  clearInterval(S.holdIval); S.holdPct=0;
+  document.getElementById('holdRing').style.background='none';
+  document.getElementById('home-btn').classList.remove('holding');
+}
+function openPG(){document.getElementById('parent-gate').classList.add('open');}
+function closePG(){document.getElementById('parent-gate').classList.remove('open');}
+function resetGame(){
+  if(!confirm("Reset all of Cathy's progress? This can't be undone.")) return;
+  localStorage.clear();
+  try{indexedDB.deleteDatabase('CathysNeighborhood');}catch(e){}
+  closePG(); showGreet('All reset! Fresh start! 🌟');
+}
+
+/* ── TOYBOX ─────────────────────────────────────────────── */
+function slotTap(i){ CN._slotTap(i); }
+// Override CN.Room.greet to use map page's showGreet bubble
+CN.Room.greet = showGreet;
+
+/* ── ZONE EDITOR ────────────────────────────────────────── */
+function toggleEdit(){
+  S.editMode=!S.editMode;
+  document.body.classList.toggle('edit-mode',S.editMode);
+  const btn=document.getElementById('editor-toggle');
+  btn.classList.toggle('active',S.editMode);
+  btn.textContent=S.editMode?'✅ DONE EDITING':'✏️ EDIT ZONES';
+  if(!S.editMode){
+    console.log('=== Zone positions ===');
+    ROOMS.forEach(r=>console.log(`{id:'${r.id}',cx:${r.cx.toFixed(1)},cy:${r.cy.toFixed(1)},rx:${r.rx.toFixed(1)},ry:${r.ry.toFixed(1)}}`));
+  }
+}
+
+function editDragStart(e,room){
+  if(!S.editMode) return;
+  e.stopPropagation();
+  const pt=e.touches?e.touches[0]:e;
+  S.lx=pt.clientX; S.ly=pt.clientY;
+  const el=document.getElementById('z_'+room.id);
+  const moveH=ev=>{
+    const p=ev.touches?ev.touches[0]:ev;
+    room.cx=Math.max(0,Math.min(100,room.cx+(p.clientX-S.lx)/S.z/IMG_W*100));
+    room.cy=Math.max(0,Math.min(100,room.cy+(p.clientY-S.ly)/S.z/IMG_H*100));
+    S.lx=p.clientX; S.ly=p.clientY;
+    placeZone(el,room);
+  };
+  const upH=()=>{
+    window.removeEventListener('mousemove',moveH);
+    window.removeEventListener('mouseup',upH);
+    window.removeEventListener('touchmove',moveH);
+    window.removeEventListener('touchend',upH);
+    S.dragging=false;
+  };
+  window.addEventListener('mousemove',moveH);
+  window.addEventListener('mouseup',upH);
+  window.addEventListener('touchmove',moveH,{passive:true});
+  window.addEventListener('touchend',upH);
+}
+
+/* ── GREETING ───────────────────────────────────────────── */
+function showGreet(msg){
+  const g=document.getElementById('greeting');
+  clearTimeout(S.greetTimer);
+  g.textContent=msg; g.classList.add('show');
+  S.greetTimer=setTimeout(()=>g.classList.remove('show'),3200);
+}
+function timeGreet(){
+  const h=new Date().getHours();
+  const s={
+    morning:["Good morning, Cathy! 🌅","Rise and shine! ☀️","What a beautiful morning! 🌸"],
+    afternoon:["Hi Cathy! Let's play! 🌈","What are we doing today? 🎉","Ready for adventure? 🌟"],
+    evening:["Good evening, Cathy! 🌆","Almost dinner time! 🍽️","One more adventure! ⭐"],
+    night:["Sleepy time soon! 😴","Sweet dreams coming! 🌙","Last adventure tonight! 🌟"],
+  };
+  const k=h<12?'morning':h<17?'afternoon':h<21?'evening':'night';
+  return s[k][Math.floor(Math.random()*s[k].length)];
+}
+
+/* ── SERVICE WORKER ─────────────────────────────────────── */
+if('serviceWorker' in navigator)
+  navigator.serviceWorker.register('./sw.js').catch(()=>{});
+
+/* ── BOOT ───────────────────────────────────────────────── */
+document.addEventListener('DOMContentLoaded',()=>{
+  initWorld();
+  setupInput();
+  applyXform();
+  // Load live toybox from IndexedDB
+  renderToyboxBar();
+  // Skip splash if returning from a room
+  if(sessionStorage.getItem('cn_visited')){
+    const sp=document.getElementById('splash');
+    sp.style.display='none';
+    setTimeout(()=>showGreet(timeGreet()),400);
+  }
+  // Auto-hide editor toggle after 6s
+  setTimeout(()=>{
+    const t=document.getElementById('editor-toggle');
+    t.style.transition='opacity .5s';
+    t.style.opacity='0';
+    t.style.pointerEvents='none';
+  },6000);
+});
+
+window.addEventListener('resize',()=>{clamp();applyXform();});
+</script>
+</body>
+</html>
