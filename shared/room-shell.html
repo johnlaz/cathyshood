@@ -1,0 +1,136 @@
+<!DOCTYPE html>
+<!--
+  CATHY'S NEIGHBORHOOD — Room Shell Template v1.0
+  shared/room-shell.html
+
+  HOW TO USE:
+  1. Copy this file to rooms/{roomId}/index.html
+  2. Replace every ⬛ placeholder with room-specific content
+  3. Set --room-bg CSS variable to the room's color scheme
+  4. Add your room content inside <div id="stage">
+
+  The shell provides:
+  - HUD with back button + room name
+  - Greeting bubble
+  - Toybox bar (live from IndexedDB)
+  - Celebration overlay
+  - CN Core engine (Item, Toybox, FX, Sound, Room)
+-->
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<title>⬛ Room Name — Cathy's Neighborhood</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Nunito:wght@400;700;800;900&family=Fredoka+One&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="../../shared/room-shell.css">
+<style>
+/* ── ROOM-SPECIFIC STYLES ── */
+body {
+  /* ⬛ Set the room background */
+  background: linear-gradient(160deg, #1a3a00 0%, #2e7d32 60%, #388e3c 100%);
+}
+
+/* ⬛ Add all room-specific CSS here */
+</style>
+</head>
+<body>
+
+<!-- HUD -->
+<div id="room-hud">
+  <div class="hud-inner">
+    <button id="back-btn" onclick="CN.Room.goBack()">← Back</button>
+    <div class="hud-room-name">
+      ⬛ <!-- emoji --> <span>⬛ Room Name</span>
+    </div>
+    <div class="hud-right">
+      <button class="hud-btn" onclick="CN.Room.goHome()"
+        style="font-size:.85rem;width:auto;padding:0 10px;font-family:var(--font-title)">🏠 Map</button>
+      <!-- ⬛ Optional extra HUD buttons -->
+    </div>
+  </div>
+</div>
+
+<!-- Greeting bubble -->
+<div id="greeting"></div>
+
+<!-- ROOM STAGE — all interactive content goes here -->
+<div id="stage">
+  <!-- ⬛ Room content -->
+</div>
+
+<!-- Toybox Bar -->
+<div id="toybox-bar-wrap">
+  <div class="tb-label">🧸</div>
+  <div id="toybox-bar"></div>
+</div>
+
+<!-- Celebration Overlay -->
+<div id="celebrate">
+  <div class="celebrate-card">
+    <div class="celebrate-emoji" id="celEmoji">🎉</div>
+    <div class="celebrate-title" id="celTitle">Amazing!</div>
+    <div class="celebrate-msg"   id="celMsg">You did it!</div>
+    <button class="cn-btn cn-btn-lg" id="celBtn"
+      style="background:linear-gradient(135deg,#ff6eb4,#c026d3)"
+      onclick="hideCelebrate()">Keep Playing! 🌟</button>
+  </div>
+</div>
+
+<!-- Core Engine -->
+<script src="../../shared/cn-core.js"></script>
+<script>
+/* ── ROOM ID ── */
+const ROOM_ID = '⬛'; // e.g. 'kitchen'
+
+/* ── ROOM INIT ── */
+CN.Room.init(ROOM_ID, async (savedState) => {
+  // ⬛ Restore room from saved state if it exists
+  if (savedState) {
+    console.log('[Room] Restored state:', savedState);
+  }
+
+  // ⬛ Build the room UI, set up items, drop zones, etc.
+  buildRoom();
+
+  // Greet on load
+  CN.Room.greet('⬛ Welcome message! 🎉');
+});
+
+/* ── BUILD ROOM ── */
+function buildRoom() {
+  // ⬛ Set up CN.Item instances, CN.DragSystem.register(), drop zones, etc.
+}
+
+/* ── CELEBRATION HELPERS ── */
+function showCelebrate(emoji = '🎉', title = 'Amazing!', msg = 'You did it!') {
+  document.getElementById('celEmoji').textContent = emoji;
+  document.getElementById('celTitle').textContent = title;
+  document.getElementById('celMsg').textContent   = msg;
+  document.getElementById('celebrate').classList.add('show');
+  CN.FX.confetti(35);
+  CN.FX.haptic('success');
+}
+
+function hideCelebrate() {
+  document.getElementById('celebrate').classList.remove('show');
+}
+
+/* ── SAVE STATE (call whenever something important changes) ── */
+async function saveRoomState() {
+  await CN.Room.save(ROOM_ID, {
+    // ⬛ serialize whatever needs to persist
+  });
+}
+
+/* ── DRAG-OVER HIGHLIGHT (wire to drop zones) ── */
+document.addEventListener('dragover', e => e.preventDefault());
+document.querySelectorAll('[data-drop]').forEach(zone => {
+  zone.addEventListener('dragenter', () => zone.classList.add('drag-over'));
+  zone.addEventListener('dragleave', () => zone.classList.remove('drag-over'));
+  zone.addEventListener('drop', () => zone.classList.remove('drag-over'));
+});
+</script>
+</body>
+</html>
