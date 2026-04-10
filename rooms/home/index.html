@@ -1,0 +1,436 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<title>Cathy's Room — Cathy's Neighborhood</title>
+<link href="https://fonts.googleapis.com/css2?family=Fredoka+One&family=Nunito:wght@700;900&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="../../shared/room-shell.css">
+<style>
+body { background:none; overflow:hidden; }
+#bg-layer { background:#f5e6c8 !important; }
+#stage-overlay { position:fixed;inset:0;z-index:0;background:rgba(0,0,0,.04);pointer-events:none; }
+#stage { display:flex;flex-direction:column;padding:0;gap:0;overflow:hidden; }
+
+/* ══ SCENE fills entire stage ══ */
+.scene {
+  flex:1; position:relative; overflow:hidden; min-height:0;
+}
+#sceneImg {
+  width:100%; height:100%;
+  object-fit:cover; object-position:center center;
+  display:block; user-select:none; -webkit-user-drag:none; pointer-events:none;
+}
+
+/* ══ HOTSPOT ZONES — invisible clickable divs positioned over image ══ */
+.hotspot {
+  position:absolute;
+  cursor:pointer;
+  touch-action:manipulation;
+  -webkit-tap-highlight-color:transparent;
+  border-radius:50%;
+  /* Pulse animation to hint interactivity */
+  animation:hsPulse 3s ease-in-out infinite;
+  display:flex; align-items:center; justify-content:center;
+  transition:transform .15s;
+}
+.hotspot:active { transform:scale(.9); }
+
+/* Invisible by default — just the pulse ring shows */
+.hotspot-ring {
+  position:absolute; inset:-8px;
+  border-radius:50%;
+  border:3px solid rgba(255,220,80,.0);
+  animation:ringPulse 3s ease-in-out infinite;
+  pointer-events:none;
+}
+@keyframes ringPulse {
+  0%,100%{ border-color:rgba(255,220,80,.0); transform:scale(1); }
+  50%    { border-color:rgba(255,220,80,.55); transform:scale(1.08); }
+}
+
+/* Emoji label that floats above the hotspot */
+.hotspot-label {
+  position:absolute;
+  bottom:calc(100% + 6px);
+  left:50%; transform:translateX(-50%);
+  background:rgba(0,0,0,.6);
+  backdrop-filter:blur(8px);
+  border-radius:12px; padding:4px 10px;
+  font-family:'Fredoka One',cursive;
+  font-size:clamp(.6rem,2vw,.78rem);
+  color:#fff; white-space:nowrap;
+  opacity:0; transition:opacity .2s;
+  pointer-events:none;
+}
+.hotspot:hover .hotspot-label,
+.hotspot:active .hotspot-label { opacity:1; }
+
+/* Hotspot glow on hover */
+.hotspot::before {
+  content:'';
+  position:absolute; inset:0; border-radius:50%;
+  background:rgba(255,220,80,.18);
+  opacity:0; transition:opacity .2s;
+}
+.hotspot:hover::before { opacity:1; }
+
+/* ══ LAUNCH OVERLAY — slides up when hotspot tapped ══ */
+.launch-overlay {
+  position:absolute; inset:0; z-index:100;
+  display:flex; flex-direction:column;
+  align-items:center; justify-content:center;
+  background:rgba(20,10,40,.82);
+  backdrop-filter:blur(14px);
+  opacity:0; pointer-events:none;
+  transition:opacity .3s;
+}
+.launch-overlay.show { opacity:1; pointer-events:all; }
+.launch-card {
+  background:linear-gradient(145deg,#1a0a33,#2d1060);
+  border-radius:24px; padding:28px 32px;
+  max-width:320px; width:90%;
+  text-align:center;
+  border:2px solid rgba(255,200,80,.3);
+  box-shadow:0 20px 60px rgba(0,0,0,.5);
+  display:flex; flex-direction:column; gap:14px; align-items:center;
+  animation:cardIn .35s cubic-bezier(.34,1.5,.64,1);
+}
+@keyframes cardIn { from{transform:scale(.7) translateY(20px);opacity:0} to{transform:scale(1) translateY(0);opacity:1} }
+.launch-ico  { font-size:3.5rem; filter:drop-shadow(0 4px 12px rgba(255,200,80,.4)); }
+.launch-name { font-family:'Fredoka One',cursive; font-size:1.3rem; color:#fde68a; }
+.launch-desc { font-family:'Nunito',sans-serif; font-size:.85rem; color:rgba(255,255,255,.75); line-height:1.5; }
+.launch-btns { display:flex; gap:10px; flex-wrap:wrap; justify-content:center; }
+.launch-btn {
+  border:none; border-radius:16px; padding:10px 22px;
+  font-family:'Fredoka One',cursive; font-size:.9rem; color:#fff;
+  cursor:pointer; touch-action:manipulation;
+  box-shadow:0 4px 0 rgba(0,0,0,.3);
+  transition:all .12s;
+}
+.launch-btn:active { transform:translateY(3px); box-shadow:0 1px 0 rgba(0,0,0,.3); }
+.btn-go    { background:linear-gradient(135deg,#f59e0b,#d97706); }
+.btn-close { background:rgba(255,255,255,.15); border:1px solid rgba(255,255,255,.2); }
+
+/* ══ PARTICLES ══ */
+.part { position:fixed;pointer-events:none;z-index:700;font-size:1.2rem;
+  animation:pFly var(--d,.7s) ease-out forwards; }
+@keyframes pFly { 0%{transform:translate(0,0)scale(1);opacity:1;} 100%{transform:translate(var(--tx,0),var(--ty,-60px))scale(.1);opacity:0;} }
+
+/* ══ JOHNNY ══ */
+.jh{position:fixed;z-index:200;right:0;top:45%;cursor:pointer;touch-action:manipulation;opacity:0;transition:opacity 1.5s;transform:translateX(60%);}
+.jp{font-size:1.9rem;display:block;animation:jPk 2.5s ease-in-out infinite alternate;}
+@keyframes jPk{from{transform:translateX(0)}to{transform:translateX(-12px)}}
+
+button,.hotspot,.launch-btn{touch-action:manipulation;-webkit-tap-highlight-color:transparent;}
+</style>
+</head>
+<body>
+<div id="bg-layer"></div>
+<div id="stage-overlay"></div>
+<div id="room-hud">
+  <div class="hud-inner">
+    <button id="back-btn" onclick="CN.Room.goBack()">← Back</button>
+    <div class="hud-room-name">🏡 <span>Cathy's Room</span></div>
+    <div class="hud-right">
+      <button class="hud-btn" id="audioBtn" onclick="CN.Audio.toggle();CN.Audio.syncBtn()">🔊</button>
+      <button class="hud-btn" onclick="CN.Room.goHome()">🏠 Map</button>
+    </div>
+  </div>
+</div>
+<div id="greeting"></div>
+
+<div id="stage">
+  <div class="scene" id="scene">
+
+    <!-- Background illustration -->
+    <img id="sceneImg" src="bg.png" alt="Cathy's Room">
+
+    <!-- ══════════════════════════════════════
+         HOTSPOTS
+         Positions are % of the scene after
+         object-fit:cover math — updated by JS
+    ══════════════════════════════════════ -->
+
+    <!-- 1. Art Easel — left bedroom area -->
+    <div class="hotspot" id="hs-art"
+         onclick="openSpot('art')"
+         style="width:clamp(60px,12vw,90px);height:clamp(60px,12vw,90px);">
+      <div class="hotspot-ring"></div>
+      <div class="hotspot-label">🎨 Art Studio</div>
+    </div>
+
+    <!-- 2. Tetris Blocks — shelf above Pac-Man -->
+    <div class="hotspot" id="hs-blocks"
+         onclick="openSpot('blocks')"
+         style="width:clamp(55px,11vw,80px);height:clamp(55px,11vw,80px);">
+      <div class="hotspot-ring"></div>
+      <div class="hotspot-label">🧩 Block Game</div>
+    </div>
+
+    <!-- 3. Pac-Man Arcade — center cabinet -->
+    <div class="hotspot" id="hs-arcade"
+         onclick="openSpot('arcade')"
+         style="width:clamp(65px,13vw,95px);height:clamp(65px,13vw,95px);">
+      <div class="hotspot-ring"></div>
+      <div class="hotspot-label">🕹️ Arcade</div>
+    </div>
+
+    <!-- 4. Story Magic TV — far right -->
+    <div class="hotspot" id="hs-storymagic"
+         onclick="openSpot('storymagic')"
+         style="width:clamp(55px,11vw,80px);height:clamp(55px,11vw,80px);">
+      <div class="hotspot-ring"></div>
+      <div class="hotspot-label">✨ Story Magic</div>
+    </div>
+
+    <!-- ══ LAUNCH OVERLAY ══ -->
+    <div class="launch-overlay" id="launchOverlay">
+      <div class="launch-card" id="launchCard">
+        <div class="launch-ico"  id="launchIco">🎨</div>
+        <div class="launch-name" id="launchName">Art Studio</div>
+        <div class="launch-desc" id="launchDesc">Tap to open!</div>
+        <div class="launch-btns">
+          <button class="launch-btn btn-go"    id="launchGo"    onclick="doLaunch()">Let's Go! 🚀</button>
+          <button class="launch-btn btn-close" onclick="closeOverlay()">← Back</button>
+        </div>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<div id="toybox-bar-wrap">
+  <div class="bar-row"><div class="tb-label">🧸</div><div id="toybox-bar"></div><div id="coin-display">🪙 0</div></div>
+  <div class="bar-row"><div class="tb-label">🧺</div><div id="basket-bar"></div></div>
+</div>
+
+<div id="celebrate">
+  <div class="celebrate-card">
+    <div class="celebrate-emoji" id="celEmoji">🏡</div>
+    <div class="celebrate-title" id="celTitle">Welcome Home!</div>
+    <div class="celebrate-msg"   id="celMsg">Cathy's room is full of fun!</div>
+    <button class="cn-btn cn-btn-lg" style="background:linear-gradient(135deg,#f59e0b,#d97706)" onclick="hideCelebrate()">Yay! 🌟</button>
+  </div>
+</div>
+
+<div id="jHide" class="jh" onclick="findJohnny()"><span class="jp">👀</span></div>
+<div id="jPop" style="display:none;position:fixed;z-index:800;flex-direction:column;align-items:center;gap:4px;pointer-events:none;">
+  <span style="font-size:3rem">👦</span>
+  <span style="font-family:'Fredoka One',cursive;font-size:.85rem;color:var(--gold);text-shadow:0 2px 6px rgba(0,0,0,.5)">Found me! +5🪙</span>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/gsap@3.12.5/dist/gsap.min.js"></script>
+<script src="../../shared/cn-core.js"></script>
+<script>
+'use strict';
+const ROOM_ID = 'home';
+
+/* ════════════════════════════════════════════════
+   HOTSPOT DEFINITIONS
+   x/y/w/h = percentage of the 2760×1504 source image.
+   Each entry also has the URL/path to launch.
+
+   ── UPDATE THESE URLs WHEN JOHN PROVIDES THEM ──
+════════════════════════════════════════════════ */
+const IMG_W = 2760, IMG_H = 1504;
+
+const SPOTS = {
+  art: {
+    ico:'🎨', name:'Art Studio',
+    desc:'Draw, paint and create anything you imagine!',
+    particles:['🎨','✏️','🌈','⭐'],
+    // Easel: left bedroom, ~23–34% x, ~33–58% y
+    xPct:.23, yPct:.33, wPct:.11, hPct:.25,
+    url: 'https://johnlaz.github.io/remix/',
+  },
+  blocks: {
+    ico:'🧩', name:'Block Drop',
+    desc:'Stack the falling blocks — how high can you go?',
+    particles:['🧩','🟦','🟥','🟨','🟩'],
+    // Tetris blocks on shelf: ~49–59% x, ~18–40% y
+    xPct:.49, yPct:.18, wPct:.10, hPct:.22,
+    url: 'https://johnlaz.github.io/tetris/',
+  },
+  arcade: {
+    ico:'🕹️', name:'Arcade',
+    desc:'Classic arcade action — Pac-Man style fun!',
+    particles:['🕹️','👾','⭐','🌟','💥'],
+    // Pac-Man cabinet: ~46–60% x, ~38–78% y
+    xPct:.46, yPct:.38, wPct:.14, hPct:.40,
+    url: 'https://johnlaz.github.io/pacman/',
+  },
+  storymagic: {
+    ico:'✨', name:'Story Magic',
+    desc:'Read magical stories brought to life!',
+    particles:['✨','📖','🌟','🦋','💫'],
+    // TV/Story Magic panel: ~85–97% x, ~38–72% y
+    xPct:.85, yPct:.38, wPct:.12, hPct:.34,
+    url: 'https://johnlaz.github.io/storymagic/',
+  },
+};
+
+/* ════════════════════════════════════════════════
+   POSITIONING — same cover math as salon
+════════════════════════════════════════════════ */
+let _currentSpot = null;
+
+function positionHotspots() {
+  const scene = document.getElementById('scene');
+  const img   = document.getElementById('sceneImg');
+  const sr    = scene.getBoundingClientRect();
+  const SW = sr.width, SH = sr.height;
+
+  // object-fit:cover math
+  const scale = Math.max(SW / IMG_W, SH / IMG_H);
+  const rendW = IMG_W * scale;
+  const rendH = IMG_H * scale;
+  const offX  = (SW - rendW) / 2;
+  const offY  = (SH - rendH) / 2;
+
+  Object.entries(SPOTS).forEach(([key, spot]) => {
+    const el = document.getElementById('hs-' + key);
+    if (!el) return;
+    // Center of the hotspot in scene coords
+    const cx = offX + (spot.xPct + spot.wPct/2) * rendW;
+    const cy = offY + (spot.yPct + spot.hPct/2) * rendH;
+    const hw = spot.wPct * rendW;
+    const hh = spot.hPct * rendH;
+    // Position element centered on cx,cy
+    el.style.left   = (cx - hw/2) + 'px';
+    el.style.top    = (cy - hh/2) + 'px';
+    el.style.width  = hw + 'px';
+    el.style.height = hh + 'px';
+  });
+}
+
+/* ════════════════════════════════════════════════
+   SPOT INTERACTION
+════════════════════════════════════════════════ */
+function openSpot(key) {
+  const spot = SPOTS[key];
+  if (!spot) return;
+  _currentSpot = key;
+
+  CN.Audio.play('collect'); CN.FX.haptic('tap');
+
+  // Particles at hotspot position
+  const el = document.getElementById('hs-' + key);
+  if (el) {
+    const r = el.getBoundingClientRect();
+    spawnParticles(spot.particles, r.left + r.width/2, r.top + r.height/2, 10);
+  }
+
+  // Show launch overlay
+  document.getElementById('launchIco').textContent  = spot.ico;
+  document.getElementById('launchName').textContent = spot.name;
+  document.getElementById('launchDesc').textContent = spot.desc + (spot.url ? '' : '\n\n🚧 Coming soon!');
+  document.getElementById('launchGo').style.display = spot.url ? 'block' : 'none';
+  document.getElementById('launchOverlay').classList.add('show');
+
+  if (window.gsap) gsap.from('#launchCard', {scale:.7, opacity:0, duration:.35, ease:'back.out(2)'});
+  CN.Room.greet(`${spot.ico} ${spot.name} — tap to launch!`);
+}
+
+function closeOverlay() {
+  document.getElementById('launchOverlay').classList.remove('show');
+  _currentSpot = null;
+  CN.Audio.play('tap');
+}
+
+function doLaunch() {
+  const spot = _currentSpot ? SPOTS[_currentSpot] : null;
+  if (!spot?.url) return;
+  CN.Audio.play('celebrate'); CN.FX.haptic('success');
+  CN.Room.greet(`Opening ${spot.name}! ${spot.ico}`);
+  setTimeout(() => { window.location.href = spot.url; }, 350);
+}
+
+// Close overlay on background tap
+document.getElementById('launchOverlay').addEventListener('pointerdown', e => {
+  if (e.target === document.getElementById('launchOverlay')) closeOverlay();
+});
+
+/* ════════════════════════════════════════════════
+   PARTICLES
+════════════════════════════════════════════════ */
+function spawnParticles(pool, cx, cy, n=8) {
+  for (let i=0; i<n; i++) {
+    const el = document.createElement('div');
+    el.className = 'part';
+    el.textContent = pool[Math.floor(Math.random()*pool.length)];
+    const tx=(Math.random()*80-40)+'px', ty=(-35-Math.random()*50)+'px';
+    el.style.cssText=`left:${cx+(Math.random()*20-10)}px;top:${cy}px;--tx:${tx};--ty:${ty};--d:${.4+Math.random()*.4}s;`;
+    document.body.appendChild(el);
+    setTimeout(()=>el.remove(), 900);
+  }
+}
+
+/* ════════════════════════════════════════════════
+   INIT
+════════════════════════════════════════════════ */
+CN.Audio.unlockOnGesture();
+CN.Room.init(ROOM_ID, async () => {
+  const img = document.getElementById('sceneImg');
+  await new Promise(r => { img.complete ? r() : (img.onload=r, img.onerror=r); });
+  await new Promise(r => requestAnimationFrame(() => requestAnimationFrame(r)));
+  positionHotspots();
+  setTimeout(positionHotspots, 400);
+  window.addEventListener('resize', positionHotspots);
+
+  renderToyboxBar();
+  CN.Audio.bgStart('home');
+  CN.Room.greet("Welcome to Cathy's Room! 🏡 Tap something to play!");
+
+  if (window.gsap) {
+    gsap.from('#sceneImg', {opacity:0, duration:.6, ease:'power2.out'});
+  }
+
+  // Stagger hotspot pulse animations so they don't all pulse in sync
+  document.querySelectorAll('.hotspot').forEach((el, i) => {
+    el.style.animationDelay = (i * .7) + 's';
+    el.querySelector('.hotspot-ring').style.animationDelay = (i * .7) + 's';
+  });
+
+  setTimeout(() => {
+    const j = document.getElementById('jHide');
+    if (j && !_jFound) {
+      j.style.opacity = '1';
+      if (window.gsap) gsap.to(j, {x:-14, duration:1, ease:'sine.inOut', yoyo:true, repeat:-1, repeatDelay:2});
+    }
+  }, 9000);
+});
+
+/* ════════════════════════════════════════════════
+   CELEBRATE / JOHNNY
+════════════════════════════════════════════════ */
+function hideCelebrate() {
+  const ov=document.getElementById('celebrate'), cd=document.querySelector('.celebrate-card');
+  if(window.gsap&&cd) CN.Anim.celebrateOut(cd,ov); else ov.classList.remove('show');
+}
+
+let _jFound = false;
+function findJohnny() {
+  if(_jFound) return; _jFound=true;
+  const h=document.getElementById('jHide'), p=document.getElementById('jPop');
+  if(!h||!p) return;
+  if(window.gsap) gsap.killTweensOf(h);
+  h.style.opacity='0'; h.style.pointerEvents='none';
+  const r=h.getBoundingClientRect();
+  p.style.cssText=`position:fixed;right:20px;top:${r.top-30}px;z-index:800;display:flex;flex-direction:column;align-items:center;gap:4px;pointer-events:none;`;
+  CN.Audio.play('celebrate'); CN.FX.haptic('success');
+  CN.Coins.add(5,'found_johnny'); renderToyboxBar();
+  CN.Room.greet('Found Johnny! 👦 +5🪙');
+  CN.FX.stars(r.left+r.width/2, r.top, 12, ['⭐','🌟','💫','✨','🎉','👦']);
+  if(window.gsap) {
+    gsap.timeline()
+      .from(p.querySelector('span'),{scale:0,rotation:-20,duration:.5,ease:'back.out(3)'})
+      .to(p,{y:-30,opacity:0,duration:.6,delay:2.2,ease:'power2.in',onComplete:()=>p.style.display='none'});
+  } else setTimeout(()=>p.style.display='none', 2600);
+}
+
+document.addEventListener('DOMContentLoaded', () => CN.Audio.syncBtn());
+</script>
+</body>
+</html>
