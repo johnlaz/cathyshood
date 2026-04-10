@@ -1,0 +1,647 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<title>Music Lab — Cathy's Neighborhood</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Nunito:wght@400;700;800;900&family=Fredoka+One&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="../../shared/room-shell.css">
+<style>
+body { background: none; background-color:#1a0533; }
+#stage-overlay { position:fixed;inset:0;z-index:0;background:rgba(0,0,0,0.42);pointer-events:none; }
+#room-hud,#greeting,#toybox-bar-wrap,#celebrate { z-index:10; }
+#stage { display:flex; flex-direction:column; align-items:center; padding:10px 12px 6px; gap:10px; }
+
+.section-title { font-family:var(--font-title);font-size:clamp(.85rem,2.5vw,1rem);color:var(--gold);letter-spacing:.06em;text-transform:uppercase;text-align:center; }
+
+/* VIZ BAR */
+.viz-bar { width:100%;max-width:480px;height:40px;background:rgba(0,0,0,.45);border-radius:10px;overflow:hidden;display:flex;gap:2px;align-items:flex-end;padding:4px 6px;border:1px solid rgba(192,132,252,.2); backdrop-filter:blur(10px); }
+.viz-col { flex:1;border-radius:3px 3px 0 0;background:linear-gradient(180deg,#c084fc,#7c3aed);transition:height .06s ease;min-height:4px; }
+
+/* DRUM PADS */
+.drum-grid { display:grid;grid-template-columns:repeat(4,1fr);gap:8px;width:100%;max-width:480px; }
+.pad {
+  aspect-ratio:1;border-radius:16px;border:none;cursor:pointer;
+  display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;
+  box-shadow:0 6px 0 rgba(0,0,0,.5),0 8px 16px rgba(0,0,0,.3);
+  position:relative;overflow:hidden;transition:transform .06s,box-shadow .06s;
+  touch-action:manipulation;
+}
+.pad.hit { transform:translateY(5px) scale(.95)!important; box-shadow:0 1px 0 rgba(0,0,0,.5)!important; filter:brightness(1.6)!important; }
+.pad-emoji { font-size:clamp(1.6rem,5vw,2.2rem);pointer-events:none; }
+.pad-label { font-family:var(--font-title);font-size:clamp(.55rem,1.5vw,.7rem);color:rgba(255,255,255,.9);pointer-events:none; }
+.pad-wave  { position:absolute;bottom:4px;right:4px;font-size:.6rem;color:rgba(255,255,255,.5);font-family:var(--font-title); }
+.pad-ripple { position:absolute;inset:0;border-radius:inherit;background:rgba(255,255,255,.4);transform:scale(0);animation:padHit .35s ease-out forwards; }
+@keyframes padHit { to{transform:scale(2.5);opacity:0;} }
+
+/* KEYBOARD */
+.keyboard-wrap { width:100%;max-width:480px;overflow-x:auto;padding-bottom:4px; }
+.keyboard { display:flex;gap:3px;min-width:300px;background:rgba(10,12,30,.75);border-radius:12px;padding:10px;border:1px solid rgba(255,255,255,.1);backdrop-filter:blur(10px); }
+.key { flex:1;min-width:28px;height:clamp(50px,14vw,76px);border-radius:0 0 8px 8px;border:none;cursor:pointer;touch-action:manipulation;box-shadow:0 4px 0 rgba(0,0,0,.4);transition:transform .06s,box-shadow .06s; }
+.key.white { background:linear-gradient(180deg,#f5f5f5,#e0e0e0); }
+.key.black { background:linear-gradient(180deg,#212121,#424242);height:60%;margin:0 -5px;z-index:1;border-radius:0 0 5px 5px;min-width:20px; }
+.key:active,.key.hit { transform:translateY(3px);box-shadow:0 1px 0 rgba(0,0,0,.4);filter:brightness(.82); }
+.key-note { position:absolute;bottom:3px;left:50%;transform:translateX(-50%);font-size:.5rem;font-weight:900;color:rgba(0,0,0,.4);font-family:var(--font-body);pointer-events:none; }
+.key.black .key-note { color:rgba(255,255,255,.45); }
+.key { position:relative; }
+
+/* LOOP LAUNCHER */
+.loop-grid { display:grid;grid-template-columns:repeat(4,1fr);gap:8px;width:100%;max-width:480px; }
+.loop-btn {
+  border-radius:14px;border:2px solid rgba(255,255,255,.15);cursor:pointer;
+  padding:10px 6px;display:flex;flex-direction:column;align-items:center;gap:5px;
+  position:relative;overflow:hidden;transition:all .15s;touch-action:manipulation;
+  background:rgba(10,12,30,.75);backdrop-filter:blur(10px);
+}
+.loop-btn.playing { border-color:rgba(255,255,255,.6); box-shadow:0 0 16px rgba(255,215,0,.3); }
+.loop-btn:active { transform:scale(.92); }
+.loop-bar { position:absolute;bottom:0;left:0;height:4px;background:var(--gold);width:0%;border-radius:2px; }
+.loop-btn.playing .loop-bar { animation:loopProgress var(--dur,2s) linear infinite; }
+@keyframes loopProgress { from{width:0%} to{width:100%} }
+.loop-emoji { font-size:1.5rem; }
+.loop-label { font-family:var(--font-title);font-size:.65rem;color:rgba(255,255,255,.85);text-align:center; }
+.loop-status { font-size:.55rem;font-family:var(--font-title);color:rgba(255,255,255,.5); }
+.loop-btn.playing .loop-status { color:var(--gold); }
+
+/* DAD'S VOICE */
+.voice-panel {
+  width:100%;max-width:480px;
+  background:rgba(10,12,30,.75);backdrop-filter:blur(10px);
+  border-radius:18px;padding:12px 14px;
+  border:1.5px solid rgba(192,132,252,.3);
+}
+.voice-title { font-family:var(--font-title);font-size:.9rem;color:#c084fc;margin-bottom:8px;text-align:center; }
+.voice-btns  { display:flex;gap:8px;flex-wrap:wrap;justify-content:center; }
+.voice-btn {
+  display:flex;flex-direction:column;align-items:center;gap:4px;
+  background:rgba(192,132,252,.12);border:1.5px solid rgba(192,132,252,.3);
+  border-radius:12px;padding:8px 12px;cursor:pointer;touch-action:manipulation;
+  transition:all .15s;min-width:72px;
+}
+.voice-btn:active { transform:scale(.9);background:rgba(192,132,252,.25); }
+.voice-btn.playing { border-color:#c084fc;background:rgba(192,132,252,.25);animation:voicePulse 1s ease-in-out infinite; }
+@keyframes voicePulse { 0%,100%{box-shadow:0 0 0 0 rgba(192,132,252,.4)} 50%{box-shadow:0 0 0 10px rgba(192,132,252,0)} }
+.voice-icon { font-size:1.6rem; }
+.voice-lbl  { font-family:var(--font-title);font-size:.65rem;color:rgba(255,255,255,.8); }
+
+/* CONTROLS */
+.controls-row { display:flex;gap:10px;align-items:center;width:100%;max-width:480px;justify-content:center;flex-wrap:wrap; }
+.bpm-wrap { display:flex;align-items:center;gap:6px;background:rgba(10,12,30,.75);border-radius:12px;padding:6px 12px;border:1px solid rgba(255,255,255,.1);backdrop-filter:blur(10px); }
+.bpm-lbl { font-family:var(--font-title);font-size:.75rem;color:rgba(255,255,255,.7); }
+.bpm-val  { font-family:var(--font-title);font-size:1rem;color:var(--gold);min-width:36px;text-align:center; }
+.bpm-btn  { width:28px;height:28px;border-radius:8px;border:none;background:rgba(255,255,255,.1);color:#fff;font-size:.9rem;cursor:pointer;touch-action:manipulation;transition:all .15s; }
+.bpm-btn:active { background:rgba(255,255,255,.25);transform:scale(.9); }
+
+/* Note float */
+.note-float { position:fixed;pointer-events:none;z-index:800;font-family:var(--font-title);font-size:1.4rem;animation:noteRise 1s ease-out forwards; }
+@keyframes noteRise { from{transform:translate(0,0) scale(1);opacity:1} to{transform:translate(var(--tx,0px),-70px) scale(.3);opacity:0} }
+
+/* ── HIDDEN JOHNNY ── */
+.johnny-hide {
+  position:fixed; z-index:50;
+  cursor:pointer; touch-action:manipulation;
+  -webkit-tap-highlight-color:transparent;
+  opacity:0; /* starts invisible — fades in after 8s */
+  transition:opacity 1s;
+  animation:none;
+}
+.johnny-peek {
+  font-size:clamp(1.2rem,4vw,1.8rem);
+  display:block;
+  animation:peekBob 2s ease-in-out infinite alternate;
+  filter:drop-shadow(0 2px 4px rgba(0,0,0,.4));
+}
+@keyframes peekBob { from{transform:translateY(0) rotate(-5deg)} to{transform:translateY(-6px) rotate(5deg)} }
+.johnny-pop {
+  position:fixed; z-index:800;
+  display:flex; flex-direction:column; align-items:center; gap:6px;
+  pointer-events:none;
+}
+.johnny-emoji { font-size:clamp(3rem,12vw,5rem); animation:johnnyJump .6s cubic-bezier(.34,1.5,.64,1) forwards; }
+@keyframes johnnyJump { from{transform:scale(0) rotate(-20deg)} to{transform:scale(1) rotate(0)} }
+.johnny-shout { font-family:var(--font-title); font-size:1rem; color:var(--gold); text-shadow:0 2px 8px rgba(0,0,0,.6); white-space:nowrap; }
+</style>
+</head>
+<body class="has-basket">
+<div id="bg-layer" style="background-image:url('bg.png')"></div>
+<div id="stage-overlay"></div>
+<div id="room-hud">
+  <div class="hud-inner">
+    <button id="back-btn" onclick="CN.Room.goBack()">← Back</button>
+    <div class="hud-room-name">🎵 <span>Music Lab</span></div>
+    <div class="hud-right">
+      <button class="hud-btn" id="audioBtn" onclick="toggleAudio()" title="Toggle sound">🔊</button>
+      <button class="hud-btn" onclick="CN.Room.goHome()">🏠 Map</button>
+      <button class="cn-btn cn-btn-sm" style="background:rgba(0,0,0,.3);font-size:.75rem;padding:7px 12px" onclick="stopAll()">⏹ Stop</button>
+    </div>
+  </div>
+</div>
+<div id="greeting"></div>
+
+<div id="stage">
+  <div class="viz-bar" id="vizBar"></div>
+
+  <div class="controls-row">
+    <div class="bpm-wrap">
+      <button class="bpm-btn" onclick="changeBPM(-10)">−</button>
+      <span class="bpm-lbl">BPM</span>
+      <span class="bpm-val" id="bpmVal">90</span>
+      <button class="bpm-btn" onclick="changeBPM(+10)">+</button>
+    </div>
+  </div>
+
+  <div class="section-title">🥁 Drum Machine</div>
+  <div class="drum-grid" id="drumGrid"></div>
+
+  <div class="section-title">🎹 Mini Keyboard</div>
+  <div class="keyboard-wrap"><div class="keyboard" id="keyboard"></div></div>
+
+  <div class="section-title">🎸 Loop Launcher — Tap to play!</div>
+  <div class="loop-grid" id="loopGrid"></div>
+
+  <div class="section-title">🎤 Dad's Voice</div>
+  <div class="voice-panel">
+    <div class="voice-title">🎙️ Tap to hear Dad!</div>
+    <div class="voice-btns" id="voiceBtns"></div>
+  </div>
+</div>
+
+<!-- Basket Bar -->
+<div id="basket-bar-wrap">
+  <div class="basket-lbl">🧺</div>
+  <div id="basket-bar"></div>
+  <div id="coin-display">🪙 0</div>
+</div>
+<!-- Toybox Bar -->
+<div id="toybox-bar-wrap">
+  <div class="bar-row"><div class="tb-label">🧸</div><div id="toybox-bar"></div><div id="coin-display">🪙 0</div></div>
+  <div class="bar-row"><div class="tb-label">🧺</div><div id="basket-bar"></div></div>
+</div>
+<div id="celebrate">
+  <div class="celebrate-card">
+    <div class="celebrate-emoji" id="celEmoji">🎵</div>
+    <div class="celebrate-title" id="celTitle">Sounds Amazing!</div>
+    <div class="celebrate-msg"   id="celMsg">You're a rockstar!</div>
+    <button class="cn-btn cn-btn-lg" style="background:linear-gradient(135deg,#6a1b9a,#4a148c)" onclick="hideCelebrate()">Keep Jamming! 🎸</button>
+  </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/gsap@3.12.5/dist/gsap.min.js"></script>
+<script src="../../shared/cn-core.js"></script>
+<script>
+'use strict';
+const ROOM_ID = 'music';
+let AudioCtx = null;
+let M = { bpm:90, notesPlayed:0, loopIntervals:{}, activeLoops:new Set() };
+
+/* ── DRUM PAD DEFINITIONS - each has unique synthesis ── */
+const PADS = [
+  {
+    emoji:'🥁', label:'Kick',    color:'#c62828',
+    note:'C2',
+    synth: ctx => {
+      const o=ctx.createOscillator(), g=ctx.createGain();
+      o.connect(g); g.connect(ctx.destination);
+      o.frequency.setValueAtTime(150,ctx.currentTime);
+      o.frequency.exponentialRampToValueAtTime(40,ctx.currentTime+0.15);
+      g.gain.setValueAtTime(1,ctx.currentTime);
+      g.gain.exponentialRampToValueAtTime(0.001,ctx.currentTime+0.4);
+      o.start(); o.stop(ctx.currentTime+0.4);
+    }
+  },
+  {
+    emoji:'🪘', label:'Snare',   color:'#1565c0',
+    synth: ctx => {
+      // White noise snare
+      const buf=ctx.createBuffer(1,ctx.sampleRate*0.2,ctx.sampleRate);
+      const d=buf.getChannelData(0);
+      for(let i=0;i<d.length;i++) d[i]=(Math.random()*2-1);
+      const src=ctx.createBufferSource();
+      src.buffer=buf;
+      const g=ctx.createGain(), f=ctx.createBiquadFilter();
+      f.type='highpass'; f.frequency.value=1000;
+      src.connect(f); f.connect(g); g.connect(ctx.destination);
+      g.gain.setValueAtTime(0.7,ctx.currentTime);
+      g.gain.exponentialRampToValueAtTime(0.001,ctx.currentTime+0.2);
+      src.start(); src.stop(ctx.currentTime+0.2);
+      // tone body
+      const o=ctx.createOscillator(),g2=ctx.createGain();
+      o.connect(g2);g2.connect(ctx.destination);
+      o.frequency.value=200;
+      g2.gain.setValueAtTime(0.4,ctx.currentTime);
+      g2.gain.exponentialRampToValueAtTime(0.001,ctx.currentTime+0.1);
+      o.start();o.stop(ctx.currentTime+0.1);
+    }
+  },
+  {
+    emoji:'🎩', label:'Hi-Hat',  color:'#1b5e20',
+    synth: ctx => {
+      const buf=ctx.createBuffer(1,ctx.sampleRate*0.05,ctx.sampleRate);
+      const d=buf.getChannelData(0);
+      for(let i=0;i<d.length;i++) d[i]=(Math.random()*2-1);
+      const src=ctx.createBufferSource();
+      src.buffer=buf;
+      const g=ctx.createGain(),f=ctx.createBiquadFilter();
+      f.type='highpass';f.frequency.value=8000;
+      src.connect(f);f.connect(g);g.connect(ctx.destination);
+      g.gain.setValueAtTime(0.5,ctx.currentTime);
+      g.gain.exponentialRampToValueAtTime(0.001,ctx.currentTime+0.05);
+      src.start();src.stop(ctx.currentTime+0.05);
+    }
+  },
+  {
+    emoji:'🔔', label:'Cowbell', color:'#e65100',
+    synth: ctx => {
+      const freqs=[562,845];
+      freqs.forEach(freq=>{
+        const o=ctx.createOscillator(),g=ctx.createGain();
+        o.type='square'; o.frequency.value=freq;
+        o.connect(g);g.connect(ctx.destination);
+        g.gain.setValueAtTime(0.3,ctx.currentTime);
+        g.gain.exponentialRampToValueAtTime(0.001,ctx.currentTime+0.8);
+        o.start();o.stop(ctx.currentTime+0.8);
+      });
+    }
+  },
+  {
+    emoji:'💥', label:'Crash',   color:'#4a148c',
+    synth: ctx => {
+      const buf=ctx.createBuffer(1,ctx.sampleRate*0.5,ctx.sampleRate);
+      const d=buf.getChannelData(0);
+      for(let i=0;i<d.length;i++) d[i]=(Math.random()*2-1)*Math.pow(1-i/d.length,0.5);
+      const src=ctx.createBufferSource();src.buffer=buf;
+      const g=ctx.createGain(),f=ctx.createBiquadFilter();
+      f.type='bandpass';f.frequency.value=4000;f.Q.value=0.5;
+      src.connect(f);f.connect(g);g.connect(ctx.destination);
+      g.gain.setValueAtTime(0.8,ctx.currentTime);
+      g.gain.exponentialRampToValueAtTime(0.001,ctx.currentTime+0.5);
+      src.start();src.stop(ctx.currentTime+0.5);
+    }
+  },
+  {
+    emoji:'👏', label:'Clap',    color:'#880e4f',
+    synth: ctx => {
+      [0,0.01,0.02].forEach(delay=>{
+        const buf=ctx.createBuffer(1,ctx.sampleRate*0.05,ctx.sampleRate);
+        const d=buf.getChannelData(0);
+        for(let i=0;i<d.length;i++) d[i]=(Math.random()*2-1);
+        const src=ctx.createBufferSource();src.buffer=buf;
+        const g=ctx.createGain();
+        src.connect(g);g.connect(ctx.destination);
+        g.gain.setValueAtTime(0.5,ctx.currentTime+delay);
+        g.gain.exponentialRampToValueAtTime(0.001,ctx.currentTime+delay+0.05);
+        src.start(ctx.currentTime+delay);
+        src.stop(ctx.currentTime+delay+0.05);
+      });
+    }
+  },
+  {
+    emoji:'🎷', label:'Tom',     color:'#006064',
+    synth: ctx => {
+      const o=ctx.createOscillator(),g=ctx.createGain();
+      o.frequency.setValueAtTime(220,ctx.currentTime);
+      o.frequency.exponentialRampToValueAtTime(80,ctx.currentTime+0.2);
+      o.connect(g);g.connect(ctx.destination);
+      g.gain.setValueAtTime(0.8,ctx.currentTime);
+      g.gain.exponentialRampToValueAtTime(0.001,ctx.currentTime+0.3);
+      o.start();o.stop(ctx.currentTime+0.3);
+    }
+  },
+  {
+    emoji:'🎺', label:'Rim',     color:'#f57f17',
+    synth: ctx => {
+      const o=ctx.createOscillator(),g=ctx.createGain();
+      o.type='triangle';
+      o.frequency.setValueAtTime(400,ctx.currentTime);
+      o.connect(g);g.connect(ctx.destination);
+      g.gain.setValueAtTime(0.6,ctx.currentTime);
+      g.gain.exponentialRampToValueAtTime(0.001,ctx.currentTime+0.08);
+      o.start();o.stop(ctx.currentTime+0.08);
+      const buf=ctx.createBuffer(1,ctx.sampleRate*0.03,ctx.sampleRate);
+      const d=buf.getChannelData(0);
+      for(let i=0;i<d.length;i++) d[i]=(Math.random()*2-1);
+      const src=ctx.createBufferSource();src.buffer=buf;
+      const g2=ctx.createGain();src.connect(g2);g2.connect(ctx.destination);
+      g2.gain.setValueAtTime(0.4,ctx.currentTime);
+      g2.gain.exponentialRampToValueAtTime(0.001,ctx.currentTime+0.03);
+      src.start();src.stop(ctx.currentTime+0.03);
+    }
+  },
+];
+
+const KEYS = [
+  {n:'C', f:261.6,b:false},{n:'C#',f:277.2,b:true},
+  {n:'D', f:293.7,b:false},{n:'D#',f:311.1,b:true},
+  {n:'E', f:329.6,b:false},{n:'F', f:349.2,b:false},
+  {n:'F#',f:370.0,b:true}, {n:'G', f:392.0,b:false},
+  {n:'G#',f:415.3,b:true}, {n:'A', f:440.0,b:false},
+  {n:'A#',f:466.2,b:true}, {n:'B', f:493.9,b:false},
+];
+
+const LOOPS = [
+  { emoji:'🎸', label:'Guitar',  color:'#c62828', dur:1800, notes:[200,250,200,300] },
+  { emoji:'🥁', label:'Beat',    color:'#1565c0', dur:1000, notes:[80,0,120,0] },
+  { emoji:'🎹', label:'Keys',    color:'#4a148c', dur:2400, notes:[440,550,440,660] },
+  { emoji:'🎵', label:'Bass',    color:'#006064', dur:1600, notes:[110,0,90,0] },
+];
+
+/* Dad's Voice lines - map to audio files in /audio/ folder */
+const VOICE_LINES = [
+  { emoji:'🌅', label:'Morning!',  file:'audio/morning.mp3',  fallback:'Good morning, Cathy!' },
+  { emoji:'⭐', label:'Great Job', file:'audio/greatjob.mp3', fallback:"That's amazing, Cathy!" },
+  { emoji:'🎵', label:'Music!',    file:'audio/music.mp3',    fallback:'Play that music, Cathy!' },
+  { emoji:'🌙', label:'Bedtime',   file:'audio/bedtime.mp3',  fallback:'Time for bed, Cathy!' },
+  { emoji:'❤️', label:'Love You',  file:'audio/loveyou.mp3',  fallback:'I love you, Cathy!' },
+  { emoji:'🎉', label:'Woohoo!',   file:'audio/woohoo.mp3',   fallback:'Woohoo! Go Cathy!' },
+];
+
+let currentVoice = null;
+
+/* ── AUDIO CONTEXT ── */
+function getCtx(){
+  if(!AudioCtx){
+    try{ AudioCtx=new(window.AudioContext||window.webkitAudioContext)(); }
+    catch(e){ return null; }
+  }
+  if(AudioCtx.state==='suspended') AudioCtx.resume();
+  return AudioCtx;
+}
+
+/* ── INIT ── */
+CN.Room.init(ROOM_ID, async()=>{
+  buildViz(); buildDrums(); buildKeyboard(); buildLoops(); buildVoice();
+  
+  // GSAP button press feedback on all interactive elements
+  document.querySelectorAll('.cn-btn,.pad,.tool-card,.car-btn,.seed,.garden-tool,.fix-tool,.tool-btn,.loop-btn,.voice-btn,.block,.key').forEach(el => {
+    el.addEventListener('pointerdown', () => CN.Anim && CN.Anim.btnPress(el));
+  });
+  CN.Room.greet("Welcome to the Music Lab! Let's make some beats! 🎵");
+  CN.Audio.bgStart('music');
+});
+
+/* ── VISUALIZER ── */
+function buildViz(){
+  const bar=document.getElementById('vizBar');
+  bar.innerHTML='';
+  for(let i=0;i<20;i++){
+    const col=document.createElement('div'); col.className='viz-col'; col.style.height='4px';
+    bar.appendChild(col);
+  }
+}
+function animViz(intensity=1){
+  document.querySelectorAll('.viz-col').forEach(col=>{
+    col.style.height=(4+Math.random()*28*intensity)+'px';
+  });
+  setTimeout(()=>document.querySelectorAll('.viz-col').forEach(c=>c.style.height='4px'),120);
+}
+
+/* ── DRUMS ── */
+function buildDrums(){
+  const grid=document.getElementById('drumGrid');
+  PADS.forEach(pad=>{
+    const el=document.createElement('button');
+    el.className='pad';
+    el.style.background=`linear-gradient(145deg,${pad.color},${pad.color}88)`;
+    el.innerHTML=`<span class="pad-emoji">${pad.emoji}</span><span class="pad-label">${pad.label}</span><span class="pad-wave">≋</span>`;
+    el.addEventListener('pointerdown', e=>{ e.preventDefault(); hitPad(el,pad); });
+    grid.appendChild(el);
+  });
+}
+
+function hitPad(el,pad){
+  const ctx=getCtx(); if(!ctx) return;
+  try{ pad.synth(ctx); } catch(e){}
+  animViz(1.8);
+  if(window.gsap){
+    gsap.timeline()
+      .to(el,{scale:.82,y:6,duration:.06,ease:'power2.in'})
+      .to(el,{scale:1.08,y:-2,duration:.18,ease:'back.out(2)'})
+      .to(el,{scale:1,y:0,duration:.15});
+  }
+  el.classList.add('hit');
+  const rip=document.createElement('div'); rip.className='pad-ripple'; el.appendChild(rip);
+  setTimeout(()=>{ el.classList.remove('hit'); rip.remove(); },350);
+  spawnNote(el,['🎵','🎶','♪','♫','🎼'][Math.floor(Math.random()*5)]);
+  countNote();
+  CN.FX.haptic('tap');
+}
+
+/* ── KEYBOARD ── */
+function buildKeyboard(){
+  const kb=document.getElementById('keyboard');
+  KEYS.forEach(k=>{
+    const key=document.createElement('button');
+    key.className='key '+(k.b?'black':'white');
+    key.innerHTML=`<span class="key-note">${k.n}</span>`;
+    key.addEventListener('pointerdown', e=>{ e.preventDefault(); playNote(k.f); spawnNote(key,k.n); countNote(); });
+    kb.appendChild(key);
+  });
+}
+
+function playNote(freq,dur=0.5){
+  const ctx=getCtx(); if(!ctx) return;
+  try{
+    const o=ctx.createOscillator(),g=ctx.createGain();
+    o.type='triangle'; o.frequency.value=freq;
+    o.connect(g); g.connect(ctx.destination);
+    g.gain.setValueAtTime(0.35,ctx.currentTime);
+    g.gain.exponentialRampToValueAtTime(0.001,ctx.currentTime+dur);
+    o.start(); o.stop(ctx.currentTime+dur);
+    animViz(0.8);
+  }catch(e){}
+}
+
+/* ── LOOPS ── */
+function buildLoops(){
+  const grid=document.getElementById('loopGrid');
+  LOOPS.forEach((loop,i)=>{
+    const el=document.createElement('div');
+    el.className='loop-btn';
+    el.style.setProperty('--dur',(loop.dur/1000)+'s');
+    el.innerHTML=`<div class="loop-emoji">${loop.emoji}</div><div class="loop-label">${loop.label}</div><div class="loop-status" id="ls${i}">Tap to play</div><div class="loop-bar"></div>`;
+    el.addEventListener('pointerdown',()=>toggleLoop(el,loop,i));
+    grid.appendChild(el);
+  });
+}
+
+function toggleLoop(el,loop,idx){
+  if(M.activeLoops.has(idx)){
+    // Stop
+    M.activeLoops.delete(idx);
+    clearInterval(M.loopIntervals[idx]);
+    el.classList.remove('playing');
+    document.getElementById('ls'+idx).textContent='Tap to play';
+    CN.Room.greet(`${loop.emoji} stopped`);
+  } else {
+    // Start - actually play tones on interval
+    M.activeLoops.add(idx);
+    el.classList.add('playing');
+    document.getElementById('ls'+idx).textContent='Playing! ▶';
+    if(window.gsap) gsap.fromTo(el,{scale:.9,opacity:.7},{scale:1,opacity:1,duration:.4,ease:'back.out(2)'});
+    CN.Room.greet(`${loop.emoji} ${loop.label} is jamming! 🎵`);
+    CN.FX.haptic('tap');
+    animViz(2);
+
+    let step=0;
+    M.loopIntervals[idx]=setInterval(()=>{
+      const freq=loop.notes[step%loop.notes.length];
+      if(freq>0) playNote(freq, (loop.dur/loop.notes.length/1000)*0.8);
+      animViz(1.2);
+      step++;
+    }, loop.dur/loop.notes.length);
+
+    if(M.activeLoops.size>=3) setTimeout(()=>showCelebrate('🎸','Full Band!','All loops playing! 🎵'),500);
+  }
+}
+
+/* ── DAD'S VOICE ── */
+function buildVoice(){
+  const wrap=document.getElementById('voiceBtns');
+  VOICE_LINES.forEach(line=>{
+    const el=document.createElement('div');
+    el.className='voice-btn';
+    el.innerHTML=`<div class="voice-icon">${line.emoji}</div><div class="voice-lbl">${line.label}</div>`;
+    el.addEventListener('pointerdown',()=>playVoice(el,line));
+    wrap.appendChild(el);
+  });
+}
+
+function playVoice(el,line){
+  // Stop current if playing
+  if(currentVoice){ currentVoice.pause(); currentVoice=null; document.querySelectorAll('.voice-btn').forEach(b=>b.classList.remove('playing')); }
+
+  // Try loading the audio file (add your MP3s to rooms/music/audio/)
+  const audio=new Audio(line.file);
+  audio.volume=1;
+
+  audio.oncanplaythrough=()=>{
+    el.classList.add('playing');
+    currentVoice=audio;
+    audio.play().catch(()=>{
+      // File not found - use speech synthesis fallback
+      speakFallback(el,line.fallback);
+    });
+    audio.onended=()=>{ el.classList.remove('playing'); currentVoice=null; };
+  };
+
+  audio.onerror=()=>{
+    // No MP3 file yet - use browser TTS as placeholder
+    speakFallback(el,line.fallback);
+  };
+
+  // Start loading
+  audio.load();
+  // Short timeout to check if file loads
+  setTimeout(()=>{ if(!currentVoice && audio.readyState<2) speakFallback(el,line.fallback); },400);
+
+  CN.FX.haptic('tap');
+  CN.Room.greet(`${line.emoji} Playing Dad's voice! 🎙️`);
+}
+
+function speakFallback(el,text){
+  el.classList.add('playing');
+  if('speechSynthesis' in window){
+    const utt=new SpeechSynthesisUtterance(text);
+    utt.rate=0.9; utt.pitch=0.85; utt.volume=1;
+    utt.onend=()=>el.classList.remove('playing');
+    speechSynthesis.speak(utt);
+  } else {
+    setTimeout(()=>el.classList.remove('playing'),2000);
+  }
+}
+
+/* ── CONTROLS ── */
+function changeBPM(d){ M.bpm=Math.min(180,Math.max(60,M.bpm+d)); document.getElementById('bpmVal').textContent=M.bpm; }
+
+function stopAll(){
+  M.activeLoops.forEach(idx=>{
+    clearInterval(M.loopIntervals[idx]);
+    const el=document.querySelector(`#loopGrid .loop-btn:nth-child(${idx+1})`);
+    if(el){ el.classList.remove('playing'); document.getElementById('ls'+idx).textContent='Tap to play'; }
+  });
+  M.activeLoops.clear();
+  if('speechSynthesis' in window) speechSynthesis.cancel();
+  if(currentVoice){ currentVoice.pause(); currentVoice=null; }
+  document.querySelectorAll('.voice-btn').forEach(b=>b.classList.remove('playing'));
+  CN.Room.greet('All stopped! Great session! 🎵');
+}
+
+function countNote(){
+  M.notesPlayed++;
+  if(M.notesPlayed===20) showCelebrate('🎸','Rockstar!','20 notes played! 🌟');
+}
+
+function spawnNote(el,text){
+  const rect=el.getBoundingClientRect();
+  const floater=document.createElement('div');
+  floater.className='note-float';
+  floater.textContent=text;
+  floater.style.cssText=`left:${rect.left+rect.width/2}px;top:${rect.top}px;--tx:${(Math.random()*30-15).toFixed(0)}px;color:${['#ffd700','#ff6eb4','#00e5cc','#c084fc'][Math.floor(Math.random()*4)]};`;
+  document.body.appendChild(floater);
+  setTimeout(()=>floater.remove(),1100);
+}
+
+function showCelebrate(emoji,title,msg){ document.getElementById('celEmoji').textContent=emoji; document.getElementById('celTitle').textContent=title; document.getElementById('celMsg').textContent=msg; document.getElementById('celebrate').classList.add('show');
+  if(window.gsap) CN.Anim.celebrateIn(document.querySelector('.celebrate-card')); (window.gsap ? CN.Anim.confettiBurst(window.innerWidth/2,window.innerHeight*.3,30) : CN.FX.confetti(30)); }
+function hideCelebrate() { const overlay = document.getElementById('celebrate'); const card  = document.querySelector('.celebrate-card'); if(window.gsap && card) {  CN.Anim.celebrateOut(card, overlay); } else {  overlay.classList.remove('show'); }}
+// Stagger grid items on load
+document.addEventListener("DOMContentLoaded",()=>{setTimeout(()=>{const g=document.querySelector(".drum-grid");if(g&&window.gsap)CN.Anim.staggerIn(g);},400);});
+</script>
+
+<!-- ══ HIDDEN JOHNNY ══ -->
+<div id="johnnyHide" class="johnny-hide" style="right:3%;top:30%" onclick="findJohnny()" title="Who's hiding?">
+  <span class="johnny-peek">👀</span>
+</div>
+<div id="johnnyPop" class="johnny-pop" style="display:none">
+  <span class="johnny-emoji">👦</span>
+  <div class="johnny-shout">Found me! 😄 (behind the speakers)</div>
+</div>
+
+<script>
+/* ══ HIDDEN JOHNNY ══ */
+let _johnnyFound = false;
+(function initJohnny(){
+  // Fade in after 8s so player has time to explore first
+  setTimeout(()=>{
+    const el=document.getElementById('johnnyHide');
+    if(el && !_johnnyFound) el.style.opacity='1';
+  }, 8000);
+})();
+
+function findJohnny(){
+  if(_johnnyFound) return;
+  _johnnyFound = true;
+  const hide=document.getElementById('johnnyHide');
+  const pop =document.getElementById('johnnyPop');
+  if(!hide||!pop) return;
+
+  hide.style.opacity='0';
+  hide.style.pointerEvents='none';
+
+  // Position pop where hide was
+  const rect=hide.getBoundingClientRect();
+  pop.style.cssText=`position:fixed;left:${rect.left}px;top:${rect.top-40}px;z-index:800;display:flex;flex-direction:column;align-items:center;gap:6px;pointer-events:none;`;
+  pop.style.display='flex';
+
+  CN.Audio.play('celebrate'); CN.FX.haptic('success');
+  CN.Coins.add(5,'found_johnny'); renderToyboxBar();
+  CN.Room.greet("You found Johnny! 👦 +5 🪙 Golden coins!");
+
+  // Burst stars from his position
+  CN.FX.stars(rect.left+rect.width/2, rect.top, 12, ['⭐','🌟','💫','✨','🎉','👦']);
+
+  if(window.gsap){
+    gsap.timeline()
+      .from(pop.querySelector('.johnny-emoji'),{scale:0,rotation:-20,duration:.5,ease:'back.out(3)'})
+      .from(pop.querySelector('.johnny-shout'),{y:10,opacity:0,duration:.3},'-=.2')
+      .to(pop,{y:-30,opacity:0,duration:.6,delay:2,ease:'power2.in',onComplete:()=>pop.style.display='none'});
+  } else {
+    setTimeout(()=>pop.style.display='none', 2500);
+  }
+}
+
+</script>
+</body>
+</html>
