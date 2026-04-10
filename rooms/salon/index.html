@@ -1,0 +1,914 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<title>Royal Salon — Cathy's Neighborhood</title>
+<link href="https://fonts.googleapis.com/css2?family=Fredoka+One&family=Nunito:wght@700;900&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="../../shared/room-shell.css">
+<style>
+body { background:none; overflow:hidden; }
+#bg-layer { background:#fce4ec !important; }
+#stage-overlay { position:fixed;inset:0;z-index:0;background:transparent;pointer-events:none; }
+#stage {
+  display:flex; flex-direction:column;
+  padding:3px 0 0; gap:3px; overflow:hidden;
+}
+
+/* ══ TAB BAR ══ */
+.tab-bar {
+  display:flex; gap:0; width:100%; flex-shrink:0;
+  background:rgba(255,230,245,.95); backdrop-filter:blur(12px);
+  border-bottom:2px solid #f9a8d4;
+  padding:0 2px;
+}
+.tab {
+  flex:1; border:none; padding:6px 2px;
+  font-family:'Fredoka One',cursive; font-size:clamp(.55rem,2vw,.78rem);
+  color:#9d174d; background:transparent; cursor:pointer;
+  touch-action:manipulation; -webkit-tap-highlight-color:transparent;
+  transition:all .18s; display:flex; flex-direction:column; align-items:center; gap:1px;
+  border-bottom:3px solid transparent;
+}
+.tab-ico { font-size:clamp(.9rem,3vw,1.2rem); }
+.tab.active { color:#be185d; border-bottom-color:#f472b6; background:rgba(244,114,182,.1); }
+.tab:active { transform:scale(.93); }
+
+/* ══ GAME AREA ══ */
+.game-area {
+  flex:1; display:flex; gap:4px;
+  padding:0 4px 4px; min-height:0;
+}
+
+/* ══ TRAYS ══ */
+.tray {
+  flex:0 0 clamp(64px,17vw,84px);
+  background:rgba(255,235,248,.94);
+  backdrop-filter:blur(14px);
+  border-radius:20px;
+  border:2.5px solid #f9a8d4;
+  box-shadow:0 4px 16px rgba(244,114,182,.25), inset 0 2px 0 rgba(255,255,255,.9);
+  padding:6px 4px;
+  display:flex; flex-direction:column; gap:5px;
+  overflow:hidden; flex-shrink:0;
+}
+.tray-lbl {
+  font-family:'Fredoka One',cursive; font-size:clamp(.48rem,1.5vw,.6rem);
+  color:#be185d; text-align:center; letter-spacing:.04em;
+  text-transform:uppercase; flex-shrink:0;
+}
+.tray-scroll {
+  flex:1; overflow-y:auto; display:flex; flex-direction:column;
+  gap:4px; align-items:center; scrollbar-width:none;
+}
+.tray-scroll::-webkit-scrollbar { display:none; }
+
+/* ══ TOOL BUTTONS — fixed height so they never collapse ══ */
+.tool {
+  width:calc(100% - 4px);
+  height:clamp(52px,13vw,68px);
+  flex-shrink:0;
+  animation:toolIn .25s cubic-bezier(.34,1.5,.64,1) both;
+  border-radius:14px;
+  border:2.5px solid rgba(255,255,255,.7);
+  display:flex; flex-direction:column; align-items:center; justify-content:center; gap:2px;
+  cursor:pointer; touch-action:manipulation; -webkit-tap-highlight-color:transparent;
+  transition:transform .12s, box-shadow .12s;
+  position:relative; overflow:hidden;
+  box-shadow:0 3px 8px rgba(0,0,0,.1), inset 0 1px 0 rgba(255,255,255,.8);
+}
+.tool::before { content:''; position:absolute; inset:0; background:linear-gradient(145deg,rgba(255,255,255,.5) 0%,transparent 55%); pointer-events:none; }
+.tool:active  { transform:scale(.86); }
+.tool.sel     { border-color:#fff; transform:scale(1.06); box-shadow:0 0 0 3px rgba(244,114,182,.6), 0 4px 14px rgba(244,114,182,.4); }
+.tool.sel::after { content:'✓'; position:absolute; top:2px; right:4px; font-family:'Nunito',sans-serif; font-weight:900; font-size:.5rem; color:#fff; text-shadow:0 1px 3px rgba(0,0,0,.4); }
+.t-ico { font-size:clamp(1.2rem,4vw,1.7rem); line-height:1; z-index:1; }
+.t-nm  { font-family:'Fredoka One',cursive; font-size:clamp(.36rem,1vw,.46rem); color:rgba(0,0,0,.6); text-align:center; z-index:1; padding:0 2px; line-height:1.1; }
+
+/* Color themes */
+.tc-water{background:linear-gradient(145deg,#bae6fd,#7dd3fc);}
+.tc-foam{background:linear-gradient(145deg,#e0f2fe,#bae6fd);}
+.tc-violet{background:linear-gradient(145deg,#ddd6fe,#c4b5fd);}
+.tc-green{background:linear-gradient(145deg,#bbf7d0,#6ee7b7);}
+.tc-gold{background:linear-gradient(145deg,#fef9c3,#fde68a);}
+.tc-rose{background:linear-gradient(145deg,#fce7f3,#fbcfe8);}
+.tc-dark{background:linear-gradient(145deg,#374151,#1f2937);border-color:rgba(255,255,255,.25);}
+.tc-dark .t-nm{color:rgba(255,255,255,.8);}
+.tc-pink{background:linear-gradient(145deg,#fce7f3,#f9a8d4);}
+.tc-red{background:linear-gradient(145deg,#fecaca,#f87171);}
+.tc-blue{background:linear-gradient(145deg,#bfdbfe,#93c5fd);}
+.tc-purple{background:linear-gradient(145deg,#ede9fe,#c4b5fd);}
+.tc-coral{background:linear-gradient(145deg,#fed7aa,#fb923c);}
+.tc-mint{background:linear-gradient(145deg,#d1fae5,#6ee7b7);}
+.tc-white{background:linear-gradient(145deg,#f8fafc,#e2e8f0);}
+.tc-yellow{background:linear-gradient(145deg,#fef9c3,#fde047);}
+.tc-berry{background:linear-gradient(145deg,#fce7f3,#e879f9);}
+.tc-sky{background:linear-gradient(145deg,#e0f2fe,#38bdf8);}
+.tc-lime{background:linear-gradient(145deg,#ecfccb,#a3e635);}
+.tc-orange{background:linear-gradient(145deg,#ffedd5,#fb923c);}
+.tc-black{background:linear-gradient(145deg,#1e293b,#0f172a);border-color:rgba(255,255,255,.2);}
+.tc-black .t-nm{color:rgba(255,255,255,.8);}
+.tc-silver{background:linear-gradient(145deg,#f1f5f9,#94a3b8);}
+
+/* ══ SCENE — image fills, canvases sit on top ══ */
+.scene-wrap {
+  flex:1; position:relative; border-radius:14px;
+  overflow:hidden; min-width:0;
+  box-shadow:0 4px 20px rgba(0,0,0,.2);
+}
+#sceneImg {
+  width:100%; height:100%;
+  object-fit:cover; object-position:center center;
+  display:block; user-select:none; -webkit-user-drag:none;
+  pointer-events:none;
+}
+/* Canvas layers absolutely positioned on top of the image */
+.scene-wrap canvas {
+  position:absolute;
+  pointer-events:none; /* enabled selectively by JS */
+  top:0; left:0;
+}
+#faceCanvas { cursor:crosshair; border-radius:6px; }
+#handCanvas { cursor:crosshair; }
+#topCanvas  { } /* accessories, no pointer events */
+
+/* Instruction bar floating over scene */
+.instruct {
+  position:absolute; bottom:8px; left:50%; transform:translateX(-50%);
+  background:rgba(255,230,245,.95); backdrop-filter:blur(10px);
+  border-radius:16px; padding:5px 14px; white-space:nowrap;
+  font-family:'Fredoka One',cursive; font-size:clamp(.6rem,2vw,.78rem);
+  color:#9d174d; border:2px solid rgba(244,114,182,.35);
+  box-shadow:0 3px 10px rgba(244,114,182,.2); z-index:20; pointer-events:none;
+}
+/* Save button */
+.save-btn {
+  display:none; position:absolute; bottom:8px; right:8px;
+  background:linear-gradient(135deg,#f472b6,#c084fc);
+  border:none; border-radius:16px; padding:7px 16px;
+  font-family:'Fredoka One',cursive; font-size:clamp(.6rem,2vw,.75rem); color:#fff;
+  box-shadow:0 4px 0 rgba(168,85,247,.4); cursor:pointer; touch-action:manipulation;
+  z-index:20; animation:popIn .4s cubic-bezier(.34,1.5,.64,1);
+}
+.save-btn.show { display:block; }
+.save-btn:active { transform:translateY(3px); box-shadow:0 1px 0 rgba(168,85,247,.4); }
+@keyframes popIn { from{transform:scale(0)} to{transform:scale(1)} }
+@keyframes toolIn { from{transform:scale(.6);opacity:0} to{transform:scale(1);opacity:1} }
+
+/* ══ PARTICLES ══ */
+.part { position:fixed; pointer-events:none; z-index:700; font-size:1.1rem;
+  animation:pFly var(--d,.65s) ease-out forwards; }
+@keyframes pFly { 0%{transform:translate(0,0)scale(1);opacity:1;} 100%{transform:translate(var(--tx,0),var(--ty,-50px))scale(.1);opacity:0;} }
+
+/* ══ CURSOR ══ */
+#cur { position:fixed; pointer-events:none; z-index:800; font-size:1.8rem;
+  transform:translate(-50%,-80%); display:none;
+  filter:drop-shadow(0 3px 6px rgba(0,0,0,.3)); }
+
+/* ══ JOHNNY ══ */
+.jh { position:fixed;z-index:200;left:0;top:44%;cursor:pointer;touch-action:manipulation;opacity:0;transition:opacity 1.5s;transform:translateX(-65%); }
+.jp-ico { font-size:1.9rem; display:block; animation:jP 2.5s ease-in-out infinite alternate; }
+@keyframes jP { from{transform:translateX(0)} to{transform:translateX(12px)} }
+
+button,.tool,.tab { touch-action:manipulation; -webkit-tap-highlight-color:transparent; }
+</style>
+</head>
+<body>
+<div id="bg-layer"></div>
+<div id="stage-overlay"></div>
+<div id="room-hud">
+  <div class="hud-inner">
+    <button id="back-btn" onclick="CN.Room.goBack()">← Back</button>
+    <div class="hud-room-name">💅 <span>Royal Salon</span></div>
+    <div class="hud-right">
+      <button class="hud-btn" id="audioBtn" onclick="CN.Audio.toggle();CN.Audio.syncBtn()">🔊</button>
+      <button class="hud-btn" onclick="CN.Room.goHome()">🏠 Map</button>
+    </div>
+  </div>
+</div>
+<div id="greeting"></div>
+
+<div id="stage">
+  <!-- TABS -->
+  <div class="tab-bar">
+    <button class="tab active" id="tab-face"   onclick="switchTab('face',this)">  <span class="tab-ico">🧽</span>Face</button>
+    <button class="tab"        id="tab-makeup" onclick="switchTab('makeup',this)"><span class="tab-ico">💄</span>Makeup</button>
+    <button class="tab"        id="tab-hair"   onclick="switchTab('hair',this)">  <span class="tab-ico">💇</span>Hair</button>
+    <button class="tab"        id="tab-nails"  onclick="switchTab('nails',this)"> <span class="tab-ico">💅</span>Nails</button>
+    <button class="tab"        id="tab-dress"  onclick="switchTab('dress',this)"> <span class="tab-ico">👑</span>Dress</button>
+  </div>
+
+  <!-- GAME AREA -->
+  <div class="game-area">
+    <!-- LEFT TRAY -->
+    <div class="tray">
+      <div class="tray-lbl">Products</div>
+      <div class="tray-scroll" id="leftList"></div>
+    </div>
+
+    <!-- SCENE -->
+    <div class="scene-wrap" id="sceneWrap">
+      <!-- Background image — JS measures this to position canvases -->
+      <img id="sceneImg" src="bg.png" alt="" crossorigin="anonymous">
+      <!-- Canvas overlays — positioned by JS after image loads -->
+      <canvas id="faceCanvas"></canvas>
+      <canvas id="handCanvas"></canvas>
+      <canvas id="topCanvas"></canvas>
+      <!-- Floating UI -->
+      <div class="instruct" id="instruct">Pick a product, then drag on the face! ✨</div>
+      <button class="save-btn" id="saveBtn" onclick="savePhoto()">📸 Save Look!</button>
+    </div>
+
+    <!-- RIGHT TRAY -->
+    <div class="tray">
+      <div class="tray-lbl">Tools</div>
+      <div class="tray-scroll" id="rightList"></div>
+    </div>
+  </div>
+</div>
+
+<div id="cur">✨</div>
+
+<div id="toybox-bar-wrap">
+  <div class="bar-row"><div class="tb-label">🧸</div><div id="toybox-bar"></div><div id="coin-display">🪙 0</div></div>
+  <div class="bar-row"><div class="tb-label">🧺</div><div id="basket-bar"></div></div>
+</div>
+
+<div id="celebrate">
+  <div class="celebrate-card">
+    <div class="celebrate-emoji" id="celEmoji">👸</div>
+    <div class="celebrate-title" id="celTitle">Gorgeous!</div>
+    <div class="celebrate-msg"   id="celMsg">Amazing makeover! +10 🪙</div>
+    <div style="display:flex;gap:10px;justify-content:center;margin-top:6px">
+      <button class="cn-btn" style="background:linear-gradient(135deg,#f472b6,#c084fc);font-size:.85rem;padding:10px 16px" onclick="savePhoto();hideCelebrate()">📸 Save</button>
+      <button class="cn-btn" style="background:linear-gradient(135deg,#34d399,#059669);font-size:.85rem;padding:10px 16px" onclick="clearAll();hideCelebrate()">▶ Again</button>
+    </div>
+  </div>
+</div>
+
+<div id="jHide" class="jh" onclick="findJohnny()"><span class="jp-ico">👀</span></div>
+<div id="jPop" style="display:none;position:fixed;z-index:800;display:flex;flex-direction:column;align-items:center;gap:4px;pointer-events:none;">
+  <span style="font-size:3rem">👦</span>
+  <span style="font-family:'Fredoka One',cursive;font-size:.85rem;color:var(--gold);text-shadow:0 2px 6px rgba(0,0,0,.5)">Found me! +5🪙</span>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/gsap@3.12.5/dist/gsap.min.js"></script>
+<script src="../../shared/cn-core.js"></script>
+<script>
+'use strict';
+const ROOM_ID = 'salon';
+
+/* ═══════════════════════════════════════
+   IMAGE ZONE PERCENTAGES
+   Measured from the 2760×1504 source image.
+   Face = girl's face inside the mirror frame.
+   Hand = the cartoon hand on the right side.
+═══════════════════════════════════════ */
+const IMG_W = 2760, IMG_H = 1504;
+// Face canvas zone (inside mirror)
+const FACE_PCT = { x:.406, y:.126, w:.170, h:.485 };
+// Hand canvas zone
+const HAND_PCT = { x:.634, y:.126, w:.326, h:.791 };
+// Nail positions within the HAND canvas (% of hand canvas)
+const NAIL_ZONES = [
+  { x:.56, y:.02, w:.33, h:.14 }, // index
+  { x:.66, y:.17, w:.29, h:.13 }, // middle
+  { x:.68, y:.31, w:.27, h:.13 }, // ring
+  { x:.68, y:.44, w:.24, h:.12 }, // pinky
+  { x:.48, y:.60, w:.30, h:.14 }, // thumb
+];
+
+/* ═══════════════════════════════════════
+   STATE
+═══════════════════════════════════════ */
+let activeTab = 'face';
+let leftSel = null, rightSel = null;
+let isDragging = false;
+let faceCtx = null, handCtx = null, topCtx = null;
+let nailColors = Array(5).fill(null);
+let nailArts   = Array(5).fill(null);
+let anyChange  = false;
+let _dragX = 0, _dragY = 0; // last pointer position for particle spawning
+
+/* ═══════════════════════════════════════
+   TAB DATA
+═══════════════════════════════════════ */
+const TABS = {
+  face: {
+    instruct:'Pick a cleanser or mask, then drag on the face!',
+    left:[
+      {ico:'🧴',nm:'Cleanser', cls:'tc-water',  color:'rgba(147,197,253,.65)', mech:'erase'},
+      {ico:'🫧',nm:'Foam',     cls:'tc-foam',   color:'rgba(186,230,253,.7)',  mech:'foam'},
+      {ico:'💧',nm:'Toner',    cls:'tc-violet', color:'rgba(196,181,253,.6)',  mech:'erase'},
+      {ico:'🌊',nm:'Micellar', cls:'tc-sky',    color:'rgba(125,211,252,.6)',  mech:'erase'},
+      {ico:'🥑',nm:'Avocado',  cls:'tc-green',  color:'rgba(110,231,183,.72)', mech:'paint'},
+      {ico:'🍯',nm:'Honey',    cls:'tc-gold',   color:'rgba(252,211,77,.7)',   mech:'paint'},
+      {ico:'🌸',nm:'Rose Clay',cls:'tc-rose',   color:'rgba(251,207,232,.75)', mech:'paint'},
+      {ico:'⬛',nm:'Charcoal', cls:'tc-dark',   color:'rgba(55,65,81,.75)',    mech:'paint'},
+    ],
+    right:[
+      {ico:'🧽',nm:'Sponge',  cls:'tc-gold',  shape:'scrub'},
+      {ico:'🪡',nm:'Cotton',  cls:'tc-white', shape:'dab'},
+      {ico:'🖌️',nm:'Brush',  cls:'tc-pink',  shape:'paint'},
+      {ico:'🥄',nm:'Spatula', cls:'tc-violet',shape:'spread'},
+      {ico:'🖐️',nm:'Fingers',cls:'tc-green', shape:'smear'},
+      {ico:'💎',nm:'Scraper', cls:'tc-blue',  shape:'scrape'},
+    ],
+  },
+  makeup: {
+    instruct:'Pick a product, tap the zone button, then tap the face!',
+    left:[
+      {ico:'💄',nm:'Red Lip',    cls:'tc-red',    color:'#ef4444',            zone:'lips'},
+      {ico:'🩷',nm:'Pink Lip',   cls:'tc-rose',   color:'#fb7185',            zone:'lips'},
+      {ico:'🫦',nm:'Nude Lip',   cls:'tc-coral',  color:'#fca5a5',            zone:'lips'},
+      {ico:'🔵',nm:'Blue Eye',   cls:'tc-blue',   color:'rgba(99,102,241,.7)',zone:'eyes'},
+      {ico:'🟣',nm:'Purple Eye', cls:'tc-purple', color:'rgba(167,139,250,.72)',zone:'eyes'},
+      {ico:'🟤',nm:'Brown Eye',  cls:'tc-coral',  color:'rgba(180,120,80,.6)', zone:'eyes'},
+      {ico:'🩷',nm:'Pink Blush', cls:'tc-rose',   color:'rgba(251,113,133,.52)',zone:'cheeks'},
+      {ico:'🍑',nm:'Peach',      cls:'tc-coral',  color:'rgba(253,186,116,.52)',zone:'cheeks'},
+      {ico:'✨',nm:'Highlight',  cls:'tc-yellow', color:'rgba(254,249,195,.8)', zone:'glow'},
+      {ico:'🌟',nm:'Shimmer',    cls:'tc-silver', color:'rgba(226,232,240,.75)',zone:'glow'},
+    ],
+    right:[
+      {ico:'💋',nm:'Lips',    cls:'tc-red',    zone:'lips'},
+      {ico:'👁️',nm:'Eyes',   cls:'tc-purple', zone:'eyes'},
+      {ico:'🌸',nm:'Cheeks',  cls:'tc-rose',   zone:'cheeks'},
+      {ico:'✨',nm:'Glow',    cls:'tc-yellow', zone:'glow'},
+      {ico:'🌈',nm:'Rainbow', cls:'tc-violet', zone:'rainbow'},
+      {ico:'🎭',nm:'Full Face',cls:'tc-pink',  zone:'full'},
+    ],
+  },
+  hair: {
+    instruct:'Pick a color and drag to paint hair. Pick an accessory to add it!',
+    left:[
+      {ico:'🟤',nm:'Brunette',cls:'tc-coral',  color:'#92400e', mech:'hair'},
+      {ico:'🖤',nm:'Black',   cls:'tc-black',  color:'#1e293b', mech:'hair'},
+      {ico:'🌸',nm:'Pink',    cls:'tc-berry',  color:'#f472b6', mech:'hair'},
+      {ico:'💜',nm:'Purple',  cls:'tc-purple', color:'#a855f7', mech:'hair'},
+      {ico:'🔵',nm:'Blue',    cls:'tc-blue',   color:'#3b82f6', mech:'hair'},
+      {ico:'🌈',nm:'Rainbow', cls:'tc-violet', color:'rainbow', mech:'hair'},
+      {ico:'⭐',nm:'Blonde',  cls:'tc-gold',   color:'#fbbf24', mech:'hair'},
+      {ico:'❄️',nm:'Silver',  cls:'tc-silver', color:'#94a3b8', mech:'hair'},
+    ],
+    right:[
+      {ico:'🎀',nm:'Big Bow',   cls:'tc-rose',   acc:'bow'},
+      {ico:'👑',nm:'Crown',     cls:'tc-gold',   acc:'crown'},
+      {ico:'🌸',nm:'Flowers',   cls:'tc-rose',   acc:'flowers'},
+      {ico:'⭐',nm:'Stars',     cls:'tc-yellow', acc:'stars'},
+      {ico:'🦋',nm:'Butterfly', cls:'tc-violet', acc:'butterfly'},
+      {ico:'💎',nm:'Gems',      cls:'tc-blue',   acc:'gems'},
+      {ico:'🌈',nm:'Streaks',   cls:'tc-sky',    acc:'streaks'},
+      {ico:'🪢',nm:'Braids',    cls:'tc-coral',  acc:'braids'},
+    ],
+  },
+  nails: {
+    instruct:'Pick a color, tap each nail. Pick nail art for designs!',
+    left:[
+      {ico:'❤️',nm:'Red',     cls:'tc-red',    color:'#ef4444', mech:'nail'},
+      {ico:'🩷',nm:'Pink',    cls:'tc-rose',   color:'#f472b6', mech:'nail'},
+      {ico:'🟣',nm:'Purple',  cls:'tc-purple', color:'#a855f7', mech:'nail'},
+      {ico:'💙',nm:'Blue',    cls:'tc-blue',   color:'#3b82f6', mech:'nail'},
+      {ico:'🩵',nm:'Sky',     cls:'tc-sky',    color:'#38bdf8', mech:'nail'},
+      {ico:'💚',nm:'Green',   cls:'tc-lime',   color:'#22c55e', mech:'nail'},
+      {ico:'🧡',nm:'Orange',  cls:'tc-orange', color:'#f97316', mech:'nail'},
+      {ico:'💛',nm:'Gold',    cls:'tc-gold',   color:'#fbbf24', mech:'nail'},
+      {ico:'🖤',nm:'Black',   cls:'tc-black',  color:'#0f172a', mech:'nail'},
+      {ico:'🤍',nm:'White',   cls:'tc-white',  color:'#f8fafc', mech:'nail'},
+      {ico:'🌈',nm:'Rainbow', cls:'tc-violet', color:'rainbow', mech:'nail'},
+      {ico:'✨',nm:'Glitter', cls:'tc-silver', color:'glitter', mech:'nail'},
+    ],
+    right:[
+      {ico:'💎',nm:'Diamond',  cls:'tc-blue',   art:'💎'},
+      {ico:'🌸',nm:'Flower',   cls:'tc-rose',   art:'🌸'},
+      {ico:'⭐',nm:'Star',     cls:'tc-yellow', art:'⭐'},
+      {ico:'❤️',nm:'Heart',   cls:'tc-red',    art:'❤️'},
+      {ico:'🌙',nm:'Moon',     cls:'tc-violet', art:'🌙'},
+      {ico:'🦋',nm:'Butterfly',cls:'tc-sky',    art:'🦋'},
+      {ico:'💍',nm:'Ring',     cls:'tc-gold',   art:'💍'},
+      {ico:'✨',nm:'Sparkle',  cls:'tc-yellow', art:'✨'},
+    ],
+  },
+  dress: {
+    instruct:'Pick a dress or accessory, then tap the mirror!',
+    left:[
+      {ico:'👗',nm:'Princess', cls:'tc-purple', acc:'👗', pos:[.5,.88]},
+      {ico:'👘',nm:'Kimono',   cls:'tc-rose',   acc:'👘', pos:[.5,.88]},
+      {ico:'❄️',nm:'Ice Queen',cls:'tc-sky',    acc:'❄️', pos:[.5,.88]},
+      {ico:'🌹',nm:'Red Gown', cls:'tc-red',    acc:'🌹', pos:[.5,.88]},
+      {ico:'💛',nm:'Sunflower',cls:'tc-yellow', acc:'💛', pos:[.5,.88]},
+      {ico:'🦄',nm:'Unicorn',  cls:'tc-violet', acc:'🦄', pos:[.5,.88]},
+    ],
+    right:[
+      {ico:'💎',nm:'Earrings', cls:'tc-blue',   acc:'💎', pos:[-.35,.46,.35,.46]},
+      {ico:'📿',nm:'Necklace', cls:'tc-gold',   acc:'📿', pos:[.5,.82]},
+      {ico:'💍',nm:'Ring',     cls:'tc-silver', acc:'💍', pos:[.5,.82]},
+      {ico:'👓',nm:'Glasses',  cls:'tc-violet', acc:'👓', pos:[.5,.34]},
+      {ico:'🌺',nm:'Corsage',  cls:'tc-rose',   acc:'🌺', pos:[.35,.7]},
+      {ico:'✨',nm:'Sparkle',  cls:'tc-yellow', acc:'✨', pos:[.5,.18]},
+      {ico:'🦋',nm:'Wings',    cls:'tc-blue',   acc:'🦋', pos:[.5,.5]},
+      {ico:'⭐',nm:'Wand',     cls:'tc-gold',   acc:'⭐', pos:[.7,.55]},
+    ],
+  },
+};
+
+/* ═══════════════════════════════════════
+   INIT
+═══════════════════════════════════════ */
+CN.Audio.unlockOnGesture();
+CN.Room.init(ROOM_ID, async () => {
+  const img = document.getElementById('sceneImg');
+  await new Promise(r => { img.complete ? r() : (img.onload=r, img.onerror=r); });
+  // Wait 3 frames for layout to fully settle before measuring
+  await new Promise(r => requestAnimationFrame(()=>requestAnimationFrame(()=>requestAnimationFrame(r))));
+  positionCanvases();
+  attachCanvasListeners();           // MUST run after canvases exist in DOM
+  setTimeout(()=>{
+    positionCanvases();
+    // Init dirt after final positioning if on face tab
+    if(activeTab==='face' && faceCtx) initFaceDirt();
+  }, 400);
+  switchTab('face', document.getElementById('tab-face'));
+  renderToyboxBar();
+  CN.Audio.bgStart('salon');
+  CN.Room.greet('Welcome to the Royal Salon! 💅✨');
+  if (window.gsap) {
+    gsap.from('.tab-bar',  {y:-20, opacity:0, duration:.45, ease:'back.out(2)'});
+    gsap.from('.game-area',{scale:.96, opacity:0, duration:.4, ease:'back.out(1.5)', delay:.1});
+  }
+  // Reposition canvases on resize
+  window.addEventListener('resize', () => { positionCanvases(); });
+  setTimeout(() => {
+    const j=document.getElementById('jHide');
+    if(j&&!_jFound){ j.style.opacity='1'; if(window.gsap)gsap.to(j,{x:12,duration:1,ease:'sine.inOut',yoyo:true,repeat:-1,repeatDelay:2}); }
+  }, 9000);
+});
+
+/* ═══════════════════════════════════════
+   CANVAS POSITIONING — THE KEY FIX
+   Use the rendered image dimensions and
+   object-fit:cover math to find exact coords
+═══════════════════════════════════════ */
+function positionCanvases() {
+  const img   = document.getElementById('sceneImg');
+  const scene = document.getElementById('sceneWrap');
+  const sRect = scene.getBoundingClientRect();
+  const SW = sRect.width, SH = sRect.height;
+
+  // object-fit:cover math:
+  // Scale so the image fills the container, maintaining aspect ratio
+  const scale = Math.max(SW / IMG_W, SH / IMG_H);
+  const rendW = IMG_W * scale;
+  const rendH = IMG_H * scale;
+  // Offset: centered
+  const offX = (SW - rendW) / 2;
+  const offY = (SH - rendH) / 2;
+
+  function placeCanvas(id, pct) {
+    const c = document.getElementById(id);
+    const x = Math.round(offX + pct.x * rendW);
+    const y = Math.round(offY + pct.y * rendH);
+    const w = Math.round(pct.w * rendW);
+    const h = Math.round(pct.h * rendH);
+    // Only resize if dimensions changed significantly
+    if (Math.abs(c.width - w) > 2 || Math.abs(c.height - h) > 2) {
+      // Save existing content
+      let saved = null;
+      if (c.width > 0 && c.height > 0) {
+        saved = document.createElement('canvas');
+        saved.width=c.width; saved.height=c.height;
+        saved.getContext('2d').drawImage(c,0,0);
+      }
+      c.width=w; c.height=h;
+      // Restore content scaled
+      if (saved && saved.width > 0) {
+        c.getContext('2d').drawImage(saved,0,0,w,h);
+      }
+    }
+    c.style.left   = x+'px';
+    c.style.top    = y+'px';
+    c.style.width  = w+'px';
+    c.style.height = h+'px';
+    return c.getContext('2d');
+  }
+
+  faceCtx = placeCanvas('faceCanvas', FACE_PCT);
+  handCtx = placeCanvas('handCanvas', HAND_PCT);
+  topCtx  = placeCanvas('topCanvas',  {x:0,y:0,w:1,h:1});
+  // topCanvas covers full scene
+  const tc=document.getElementById('topCanvas');
+  if(Math.abs(tc.width-Math.round(SW))>2){ tc.width=Math.round(SW); tc.height=Math.round(SH); }
+
+  // Enable pointer events on the active canvas
+  updateCanvasPointers();
+}
+
+function updateCanvasPointers() {
+  const tab = TABS[activeTab];
+  const useHand = activeTab==='nails';
+  document.getElementById('faceCanvas').style.pointerEvents = useHand ? 'none' : 'all';
+  document.getElementById('handCanvas').style.pointerEvents = useHand ? 'all' : 'none';
+  document.getElementById('topCanvas').style.pointerEvents  = 'none';
+}
+
+/* ═══════════════════════════════════════
+   POINTER EVENTS — attached once
+═══════════════════════════════════════ */
+function attachCanvasListeners() {
+  ['faceCanvas','handCanvas'].forEach(id => {
+    const zone = id === 'faceCanvas' ? 'face' : 'hand';
+    const c = document.getElementById(id);
+    c.addEventListener('pointerdown', e => { isDragging=true; onDrag(e,zone); e.preventDefault(); });
+    c.addEventListener('pointermove', e => { if(isDragging) onDrag(e,zone); e.preventDefault(); });
+    c.addEventListener('pointerup',   e => { isDragging=false; onTap(e,zone); hideCur(); });
+    c.addEventListener('pointercancel',() => { isDragging=false; hideCur(); });
+  });
+}
+
+function hideCur() { document.getElementById('cur').style.display='none'; }
+
+function onDrag(e, zone) {
+  const ctx = zone==='face' ? faceCtx : handCtx;
+  if (!ctx) return; // canvases not ready yet
+
+  // Move cursor
+  _dragX=e.clientX; _dragY=e.clientY;
+  const cur = document.getElementById('cur');
+  cur.style.display='block'; cur.style.left=e.clientX+'px'; cur.style.top=e.clientY+'px';
+
+  const c = document.getElementById(zone==='face'?'faceCanvas':'handCanvas');
+  const r = c.getBoundingClientRect();
+  if (!r.width) return; // canvas not positioned yet
+  const x = (e.clientX-r.left)*(c.width/r.width);
+  const y = (e.clientY-r.top)*(c.height/r.height);
+
+  if (zone==='face') faceDrag(x,y,ctx,c.width,c.height);
+  else if (zone==='hand') nailTap(ctx,c.width,c.height,x/c.width,y/c.height,e);
+}
+
+function onTap(e, zone) {
+  const ctx = zone==='face' ? faceCtx : handCtx;
+  if (!ctx) return;
+  const c   = document.getElementById(zone==='face'?'faceCanvas':'handCanvas');
+  const r   = c.getBoundingClientRect();
+  if (!r.width) return;
+  const x   = (e.clientX-r.left)*(c.width/r.width);
+  const y   = (e.clientY-r.top)*(c.height/r.height);
+  const xPct = x/c.width, yPct = y/c.height;
+
+  if (zone==='face') {
+    if (activeTab==='makeup') makeupTap(ctx,c.width,c.height,e);
+    else if (activeTab==='hair') hairTap(ctx,c.width,c.height,xPct,yPct,e);
+    else if (activeTab==='dress') dressTap(ctx,c.width,c.height,e);
+    else faceDrag(x,y,ctx,c.width,c.height); // face tab
+  } else if (zone==='hand') {
+    nailTap(ctx,c.width,c.height,xPct,yPct,e);
+  }
+  markChanged();
+}
+
+/* ═══════════════════════════════════════
+   FACE DIRT INIT & DRAG
+═══════════════════════════════════════ */
+function initFaceDirt() {
+  if (!faceCtx) return;
+  const ctx=faceCtx, W=ctx.canvas.width, H=ctx.canvas.height;
+  ctx.clearRect(0,0,W,H);
+  // Brown dirt/grime layer over face oval
+  const g=ctx.createRadialGradient(W*.5,H*.4,0,W*.5,H*.45,W*.5);
+  g.addColorStop(0,'rgba(160,120,80,.42)');
+  g.addColorStop(1,'rgba(130,90,55,.62)');
+  ctx.fillStyle=g;
+  ctx.beginPath();ctx.ellipse(W*.5,H*.43,W*.45,H*.47,0,0,Math.PI*2);ctx.fill();
+  // Dirt spots
+  for(let i=0;i<40;i++){
+    const px=W*.18+Math.random()*W*.64, py=H*.08+Math.random()*H*.78;
+    ctx.fillStyle=`rgba(${100+Math.random()*40|0},${70+Math.random()*30|0},45,${(.15+Math.random()*.28).toFixed(2)})`;
+    ctx.beginPath();ctx.arc(px,py,2+Math.random()*5,0,Math.PI*2);ctx.fill();
+  }
+}
+
+function faceDrag(x,y,ctx,W,H) {
+  if (!leftSel && !rightSel) {
+    CN.Room.greet('Pick a product first! 👈'); return;
+  }
+  const mech  = leftSel?.item?.mech || 'erase';
+  const shape = rightSel?.item?.shape || 'paint';
+  const color = leftSel?.item?.color || 'rgba(249,168,212,.65)';
+  const r = W * .1;
+
+  if (mech==='erase' || mech==='foam') {
+    ctx.fillStyle = 'rgba(0,0,0,1)'; // required for destination-out
+    ctx.globalCompositeOperation = 'destination-out';
+    if(shape==='scrub'){
+      for(let i=0;i<6;i++){ctx.beginPath();ctx.arc(x+(Math.random()-.5)*r*.8,y+(Math.random()-.5)*r*.8,r*.65,0,Math.PI*2);ctx.fill();}
+    } else if(shape==='dab'){
+      const g=ctx.createRadialGradient(x,y,0,x,y,r*.9);g.addColorStop(0,'rgba(0,0,0,1)');g.addColorStop(1,'rgba(0,0,0,0)');ctx.fillStyle=g;ctx.beginPath();ctx.arc(x,y,r*.9,0,Math.PI*2);ctx.fill();
+    } else if(shape==='spread'){ctx.beginPath();ctx.ellipse(x,y,r*1.5,r*.5,Math.PI/4,0,Math.PI*2);ctx.fill();}
+    else if(shape==='scrape'){ctx.fillRect(x-r*1.4,y-r*.35,r*2.8,r*.7);}
+    else{ctx.beginPath();ctx.ellipse(x,y,r,r*.75,0,0,Math.PI*2);ctx.fill();}
+    ctx.globalCompositeOperation='source-over';
+  }
+
+  if (mech==='paint' || mech==='hair') {
+    ctx.globalCompositeOperation='source-over';
+    const c2 = color==='rainbow' ? `hsl(${(x/W*360)|0},88%,62%)` : color;
+    ctx.fillStyle=c2;
+    if(shape==='spread'){ctx.beginPath();ctx.ellipse(x,y,r*1.6,r*.5,Math.PI/4,0,Math.PI*2);ctx.fill();}
+    else if(shape==='smear'){for(let i=0;i<3;i++){ctx.beginPath();ctx.arc(x+(Math.random()-.5)*r,y+(Math.random()-.5)*r,r*.7,0,Math.PI*2);ctx.fill();}}
+    else{ctx.beginPath();ctx.arc(x,y,r,0,Math.PI*2);ctx.fill();}
+    // Clip to face oval
+    ctx.globalCompositeOperation='destination-in';
+    ctx.beginPath();ctx.ellipse(W*.5,H*.43,W*.45,H*.47,0,0,Math.PI*2);ctx.fill();
+    ctx.globalCompositeOperation='source-over';
+  }
+
+  if(Math.random()<.15) spawnParticles([leftSel?.item?.ico||rightSel?.item?.ico||'✨','✨'],_dragX||0,_dragY||0);
+  markChanged();
+}
+
+/* ═══════════════════════════════════════
+   MAKEUP TAP
+═══════════════════════════════════════ */
+function makeupTap(ctx,W,H,e) {
+  const zone  = rightSel?.item?.zone || leftSel?.item?.zone;
+  const color = leftSel?.item?.color || '#f472b6';
+  if (!zone) { CN.Room.greet('Pick a zone on the right tray! 👉'); return; }
+  drawZone(ctx,W,H,zone,color);
+  CN.Audio.play('collect');CN.FX.haptic('success');
+  spawnParticles(['✨','💄','🌟'],e.clientX,e.clientY,8);
+  CN.Room.greet(`${leftSel?.item?.ico||'💄'} ${zone} — looking great! ✨`);
+}
+
+function drawZone(ctx,W,H,zone,color) {
+  const cx=W*.5;
+  ctx.globalCompositeOperation='source-over';
+  if(zone==='lips'){
+    ctx.fillStyle=color;ctx.beginPath();ctx.ellipse(cx,H*.74,W*.16,H*.054,0,0,Math.PI*2);ctx.fill();
+    ctx.fillStyle='rgba(255,255,255,.3)';ctx.beginPath();ctx.ellipse(cx-W*.04,H*.73,W*.05,H*.02,-.2,0,Math.PI*2);ctx.fill();
+  } else if(zone==='eyes'){
+    ctx.fillStyle=color;
+    ctx.beginPath();ctx.ellipse(cx-W*.22,H*.3,W*.11,H*.065,-.12,0,Math.PI*2);ctx.fill();
+    ctx.beginPath();ctx.ellipse(cx+W*.22,H*.3,W*.11,H*.065,.12,0,Math.PI*2);ctx.fill();
+  } else if(zone==='cheeks'){
+    const g1=ctx.createRadialGradient(cx-W*.28,H*.52,0,cx-W*.28,H*.52,W*.16);g1.addColorStop(0,color);g1.addColorStop(1,'transparent');ctx.fillStyle=g1;ctx.beginPath();ctx.arc(cx-W*.28,H*.52,W*.16,0,Math.PI*2);ctx.fill();
+    const g2=ctx.createRadialGradient(cx+W*.28,H*.52,0,cx+W*.28,H*.52,W*.16);g2.addColorStop(0,color);g2.addColorStop(1,'transparent');ctx.fillStyle=g2;ctx.beginPath();ctx.arc(cx+W*.28,H*.52,W*.16,0,Math.PI*2);ctx.fill();
+  } else if(zone==='glow'){
+    const g=ctx.createRadialGradient(cx,H*.28,0,cx,H*.28,W*.18);g.addColorStop(0,color);g.addColorStop(1,'transparent');ctx.fillStyle=g;ctx.beginPath();ctx.arc(cx,H*.28,W*.18,0,Math.PI*2);ctx.fill();
+  } else if(zone==='rainbow'){
+    [0,40,80,140,200,260,310].forEach((h,i)=>{
+      const clr=`hsla(${h},85%,65%,.6)`;
+      ctx.fillStyle=clr;ctx.beginPath();ctx.ellipse(cx-W*.24+i*W*.04,H*.3,W*.04,H*.04,0,0,Math.PI*2);ctx.fill();
+      ctx.beginPath();ctx.ellipse(cx+W*.24-i*W*.04,H*.3,W*.04,H*.04,0,0,Math.PI*2);ctx.fill();
+    });
+  } else if(zone==='full'){
+    drawZone(ctx,W,H,'lips','#ef4444');drawZone(ctx,W,H,'eyes','rgba(167,139,250,.75)');
+    drawZone(ctx,W,H,'cheeks','rgba(251,113,133,.5)');drawZone(ctx,W,H,'glow','rgba(254,249,195,.8)');return;
+  }
+  // Clip to face oval
+  ctx.globalCompositeOperation='destination-in';ctx.beginPath();ctx.ellipse(cx,H*.43,W*.45,H*.47,0,0,Math.PI*2);ctx.fill();
+  ctx.globalCompositeOperation='source-over';
+}
+
+/* ═══════════════════════════════════════
+   HAIR
+═══════════════════════════════════════ */
+function hairTap(ctx,W,H,xPct,yPct,e) {
+  const acc = rightSel?.item?.acc;
+  if (acc) {
+    placeHairAcc(ctx,W,H,acc);
+    CN.Audio.play('collect');CN.FX.haptic('success');
+    spawnParticles([rightSel.item.ico,'✨'],e.clientX,e.clientY,8);
+    CN.Room.greet(`${rightSel.item.ico} ${rightSel.item.nm} added! ✨`);
+  }
+}
+function placeHairAcc(ctx,W,H,acc) {
+  const cx=W*.5;
+  ctx.globalCompositeOperation='source-over';
+  ctx.textAlign='center';ctx.textBaseline='middle';
+  const map={bow:'🎀',crown:'👑',flowers:'🌸',stars:'⭐',butterfly:'🦋',gems:'💎',streaks:'🌈',braids:'🪢'};
+  const ico=map[acc]||acc;
+  ctx.font=`${W*.28}px serif`;ctx.fillText(ico,cx,H*.07);
+}
+
+/* ═══════════════════════════════════════
+   NAILS
+═══════════════════════════════════════ */
+function nailTap(ctx,W,H,xPct,yPct,e) {
+  if (!leftSel) { CN.Room.greet('Pick a nail color first! 💅'); return; }
+  // Find which nail zone was hit
+  let hit = -1;
+  NAIL_ZONES.forEach((n,i) => {
+    if (xPct>=n.x && xPct<=n.x+n.w && yPct>=n.y && yPct<=n.y+n.h) hit=i;
+  });
+  if (hit===-1) {
+    // Missed a nail - paint all nails with current color as a shortcut
+    CN.Room.greet('Tap the nails! Painting all nails... 💅');
+    nailColors=nailColors.map(()=>leftSel.item.color);
+    nailArts=nailArts.map(()=>rightSel?.item?.art||null);
+    NAIL_ZONES.forEach((_,idx)=>paintNail(ctx,W,H,idx));
+    markChanged();
+    CN.Audio.play('collect');CN.FX.haptic('success');
+    spawnParticles(['💅','✨'],e.clientX,e.clientY,10);
+    return;
+  }
+
+  nailColors[hit] = leftSel.item.color;
+  nailArts[hit]   = rightSel?.item?.art || null;
+  paintNail(ctx, W, H, hit);
+  CN.Audio.play('tap');CN.FX.haptic('tap');
+  spawnParticles(['💅','✨'],e.clientX,e.clientY,6);
+  CN.Room.greet(`Nail ${hit+1} done! 💅`);
+  if (nailColors.every(Boolean)) {
+    CN.Audio.play('celebrate');CN.FX.haptic('success');
+    CN.Coins.add(3,'nails');renderToyboxBar();
+    CN.Room.greet('All 5 nails done! +3🪙 ✨');
+    if(window.gsap)CN.Anim.confettiBurst(e.clientX,e.clientY,16);
+  }
+}
+
+function paintNail(ctx,W,H,i) {
+  const n=NAIL_ZONES[i];
+  const nx=n.x*W,ny=n.y*H,nw=n.w*W,nh=n.h*H;
+  const cx=nx+nw*.5,cy=ny+nh*.5;
+  const color=nailColors[i];const art=nailArts[i];
+  ctx.globalCompositeOperation='source-over';
+  // Fill nail shape
+  if(color==='rainbow'){
+    const g=ctx.createLinearGradient(nx,ny,nx+nw,ny+nh);
+    g.addColorStop(0,'#f87171');g.addColorStop(.25,'#fb923c');g.addColorStop(.5,'#facc15');g.addColorStop(.75,'#34d399');g.addColorStop(1,'#818cf8');ctx.fillStyle=g;
+  } else if(color==='glitter'){
+    ctx.fillStyle='rgba(203,213,225,.85)';ctx.beginPath();ctx.ellipse(cx,cy,nw*.46,nh*.44,0,0,Math.PI*2);ctx.fill();
+    for(let j=0;j<25;j++){ctx.fillStyle=`hsl(${Math.random()*360},88%,65%)`;ctx.beginPath();ctx.arc(nx+Math.random()*nw,ny+Math.random()*nh,1+Math.random()*2,0,Math.PI*2);ctx.fill();}
+  } else {
+    ctx.fillStyle=color;
+  }
+  if(color!=='glitter'){ctx.beginPath();ctx.ellipse(cx,cy,nw*.45,nh*.43,0,0,Math.PI*2);ctx.fill();}
+  // Shine
+  ctx.fillStyle='rgba(255,255,255,.38)';ctx.beginPath();ctx.ellipse(cx-nw*.1,cy-nh*.12,nw*.14,nh*.1,-.28,0,Math.PI*2);ctx.fill();
+  // Art
+  if(art){ctx.font=`${Math.min(nw,nh)*.55}px serif`;ctx.textAlign='center';ctx.textBaseline='middle';ctx.fillText(art,cx,cy+nh*.05);}
+}
+
+/* ═══════════════════════════════════════
+   DRESS UP
+═══════════════════════════════════════ */
+function dressTap(ctx,W,H,e) {
+  const item=rightSel?.item||leftSel?.item;
+  if(!item?.acc){CN.Room.greet('Pick a dress or accessory! 👗');return;}
+  const cx=W*.5;
+  ctx.globalCompositeOperation='source-over';
+  ctx.textAlign='center';ctx.textBaseline='middle';
+  const pos=item.pos||[.5,.5];
+  if(pos.length===4){
+    // paired (earrings)
+    ctx.font=`${W*.16}px serif`;ctx.fillText(item.acc,cx+pos[0]*W,pos[1]*H);ctx.fillText(item.acc,cx+pos[2]*W,pos[3]*H);
+  } else {
+    const sz=item.acc==='👗'||item.acc==='👘'||item.acc==='❄️'?W*.4:W*.22;
+    ctx.font=`${sz}px serif`;ctx.fillText(item.acc,cx+pos[0]*W,pos[1]*H);
+  }
+  CN.Audio.play('collect');CN.FX.haptic('success');
+  spawnParticles([item.ico,'✨','🌟'],e.clientX,e.clientY,8);
+  CN.Room.greet(`${item.ico} ${item.nm} on! ✨`);
+}
+
+/* ═══════════════════════════════════════
+   TAB SWITCHING
+═══════════════════════════════════════ */
+function switchTab(name, btn) {
+  activeTab=name; leftSel=null; rightSel=null;
+  document.querySelectorAll('.tab').forEach(b=>b.classList.remove('active'));
+  btn.classList.add('active');
+  const td=TABS[name];
+  buildList('leftList',  td.left,  'left');
+  buildList('rightList', td.right, 'right');
+  updateCanvasPointers();
+  document.getElementById('instruct').textContent=td.instruct;
+  CN.Audio.play('tap');
+  if (name==='face' && faceCtx) initFaceDirt();
+}
+
+function buildList(id, items, side) {
+  const wrap=document.getElementById(id);
+  wrap.innerHTML='';
+  items.forEach((item,i)=>{
+    const el=document.createElement('div');
+    el.className='tool '+(item.cls||'');
+    el.innerHTML=`<div class="t-ico">${item.ico}</div><div class="t-nm">${item.nm}</div>`;
+    el.addEventListener('pointerdown',e=>{e.stopPropagation();pickTool(side,item,el);});
+    wrap.appendChild(el);
+  });
+}
+
+function pickTool(side,item,el){
+  if(side==='left') {leftSel={item,el}; document.querySelectorAll('#leftList  .tool').forEach(b=>b.classList.remove('sel'));}
+  else              {rightSel={item,el};document.querySelectorAll('#rightList .tool').forEach(b=>b.classList.remove('sel'));}
+  el.classList.add('sel');
+  document.getElementById('cur').textContent=item.ico;
+  CN.Audio.play('tap');CN.FX.haptic('tap');
+  if(window.gsap)CN.Anim.pop(el);
+}
+
+/* ═══════════════════════════════════════
+   HELPERS
+═══════════════════════════════════════ */
+function markChanged(){
+  anyChange=true;
+  document.getElementById('saveBtn').classList.add('show');
+}
+
+function spawnParticles(pool,cx,cy,n=6){
+  for(let i=0;i<n;i++){
+    const el=document.createElement('div');el.className='part';
+    el.textContent=pool[Math.floor(Math.random()*pool.length)];
+    const tx=(Math.random()*60-30)+'px',ty=(-32-Math.random()*40)+'px';
+    el.style.cssText=`left:${cx+(Math.random()*20-10)}px;top:${cy}px;--tx:${tx};--ty:${ty};--d:${.42+Math.random()*.35}s;`;
+    document.body.appendChild(el);setTimeout(()=>el.remove(),800);
+  }
+}
+
+function clearAll(){
+  [faceCtx,handCtx,topCtx].forEach(c=>{if(c)c.clearRect(0,0,c.canvas.width,c.canvas.height);});
+  nailColors=Array(5).fill(null);nailArts=Array(5).fill(null);
+  anyChange=false;document.getElementById('saveBtn').classList.remove('show');
+  CN.Room.greet('Fresh start! ✨');
+}
+
+/* ═══════════════════════════════════════
+   SAVE PHOTO — draw everything on one canvas, use blob URL
+═══════════════════════════════════════ */
+function savePhoto(){
+  const out=document.createElement('canvas');
+  const scene=document.getElementById('sceneWrap');
+  const sr=scene.getBoundingClientRect();
+  out.width=Math.round(sr.width); out.height=Math.round(sr.height);
+  const ctx=out.getContext('2d');
+
+  // Step 1: draw a pink fallback background
+  const bg=ctx.createLinearGradient(0,0,0,out.height);
+  bg.addColorStop(0,'#fce4ec');bg.addColorStop(1,'#fdf2f8');
+  ctx.fillStyle=bg;ctx.fillRect(0,0,out.width,out.height);
+
+  // Step 2: try to draw the bg image (may fail cross-origin on file://)
+  const img=document.getElementById('sceneImg');
+  try{
+    const scale=Math.max(out.width/IMG_W,out.height/IMG_H);
+    const rw=IMG_W*scale,rh=IMG_H*scale;
+    const ox=(out.width-rw)/2,oy=(out.height-rh)/2;
+    ctx.drawImage(img,ox,oy,rw,rh);
+  }catch(err){/* file:// CORS — bg stays pink */}
+
+  // Step 3: overlay each canvas
+  ['faceCanvas','handCanvas','topCanvas'].forEach(id=>{
+    const c=document.getElementById(id);
+    if(!c||!c.width)return;
+    const x=parseFloat(c.style.left)||0;
+    const y=parseFloat(c.style.top)||0;
+    ctx.drawImage(c,x,y);
+  });
+
+  // Step 4: decorative border
+  ctx.strokeStyle='rgba(244,114,182,.55)';ctx.lineWidth=6;ctx.strokeRect(3,3,out.width-6,out.height-6);
+  ctx.font='bold 13px serif';ctx.fillStyle='rgba(190,24,93,.4)';ctx.textAlign='right';ctx.textBaseline='bottom';
+  ctx.fillText('✨ Royal Salon',out.width-6,out.height-5);
+
+  // Step 5: download via blob URL (works on file:// too)
+  out.toBlob(blob=>{
+    if(!blob){CN.Room.greet('Tap and hold image to save!');return;}
+    const url=URL.createObjectURL(blob);
+    const a=document.createElement('a');
+    a.href=url;a.download='my-princess-look.png';
+    document.body.appendChild(a);a.click();
+    setTimeout(()=>{URL.revokeObjectURL(url);a.remove();},1000);
+    CN.Room.greet('📸 Saved to downloads! ✨');
+    CN.Audio.play('celebrate');CN.FX.haptic('success');
+  },'image/png',.95);
+}
+
+/* ═══════════════════════════════════════
+   CELEBRATE / JOHNNY
+═══════════════════════════════════════ */
+function hideCelebrate(){
+  const ov=document.getElementById('celebrate'),cd=document.querySelector('.celebrate-card');
+  if(window.gsap&&cd)CN.Anim.celebrateOut(cd,ov);else ov.classList.remove('show');
+}
+
+let _jFound=false;
+function findJohnny(){
+  if(_jFound)return;_jFound=true;
+  const h=document.getElementById('jHide'),p=document.getElementById('jPop');if(!h||!p)return;
+  if(window.gsap)gsap.killTweensOf(h);
+  h.style.opacity='0';h.style.pointerEvents='none';
+  const r=h.getBoundingClientRect();
+  p.style.cssText=`position:fixed;left:${r.left+10}px;top:${r.top-30}px;z-index:800;display:flex;flex-direction:column;align-items:center;gap:4px;pointer-events:none;`;
+  CN.Audio.play('celebrate');CN.FX.haptic('success');
+  CN.Coins.add(5,'found_johnny');renderToyboxBar();CN.Room.greet('Found Johnny! 👦 +5🪙');
+  CN.FX.stars(r.left+r.width/2,r.top,12,['⭐','🌟','💫','✨','🎉','👦']);
+  if(window.gsap){gsap.timeline().from(p.querySelector('span'),{scale:0,rotation:-20,duration:.5,ease:'back.out(3)'}).to(p,{y:-30,opacity:0,duration:.6,delay:2.2,ease:'power2.in',onComplete:()=>p.style.display='none'});}
+  else setTimeout(()=>p.style.display='none',2600);
+}
+
+document.addEventListener('pointerup',()=>{ hideCur(); isDragging=false; });
+document.addEventListener('DOMContentLoaded',()=>CN.Audio.syncBtn());
+</script>
+</body>
+</html>
