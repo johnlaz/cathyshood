@@ -1,0 +1,847 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<title>Garage & 3D Lab — Cathy's Neighborhood</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Nunito:wght@400;700;800;900&family=Fredoka+One&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="../../shared/room-shell.css">
+<style>
+body { background: none; background-color:#1a1a2e; }
+#stage-overlay { position:fixed;inset:0;z-index:0;background:rgba(0,0,0,0.42);pointer-events:none; }
+#room-hud,#greeting,#toybox-bar-wrap,#basket-bar-wrap,#celebrate { z-index:10; }
+#stage { display:flex; flex-direction:column; align-items:center; padding:10px 12px 6px; gap:10px; }
+
+.glass { background:rgba(10,12,30,.78);backdrop-filter:blur(12px);border-radius:18px;border:1.5px solid rgba(255,255,255,.18); }
+
+/* ── ZONE SELECTOR ── */
+.zone-picker {
+  display:flex; gap:8px; width:100%; max-width:520px; justify-content:center;
+}
+.zone-card {
+  flex:1; max-width:160px;
+  border-radius:16px; border:none; cursor:pointer; padding:14px 8px;
+  display:flex; flex-direction:column; align-items:center; gap:6px;
+  border:2.5px solid rgba(255,255,255,.15);
+  background:rgba(10,12,30,.7); backdrop-filter:blur(8px);
+  transition:all .18s; touch-action:manipulation;
+}
+.zone-card:active { transform:scale(.93); }
+.zone-card.active {
+  border-color:var(--gold);
+  background:rgba(255,215,0,.1);
+  box-shadow:0 0 20px rgba(255,215,0,.2);
+}
+.zone-icon  { font-size:clamp(1.8rem,6vw,2.6rem); }
+.zone-label { font-family:var(--font-title);font-size:clamp(.72rem,2vw,.88rem);color:rgba(255,255,255,.85); }
+
+/* ── ACTIVITY PANEL ── */
+.activity-panel { width:100%;max-width:520px; display:none; }
+.activity-panel.active { display:flex; flex-direction:column; gap:10px; }
+
+/* ════════════════════════
+   3D PRINT LAB
+════════════════════════ */
+.print-choices {
+  display:flex;gap:8px;justify-content:center;flex-wrap:wrap;padding:10px 12px 6px;
+}
+.print-choice {
+  display:flex;flex-direction:column;align-items:center;gap:4px;
+  font-size:clamp(1.6rem,5vw,2.2rem);padding:10px 12px;border-radius:14px;cursor:pointer;
+  background:rgba(0,229,204,.08);border:1.5px solid rgba(0,229,204,.2);
+  transition:all .15s;touch-action:manipulation;min-width:72px;
+}
+.print-choice.selected { background:rgba(0,229,204,.2);border-color:var(--teal);transform:scale(1.08); }
+.print-choice-label { font-family:var(--font-title);font-size:.65rem;color:rgba(255,255,255,.8); }
+.print-choice:active { transform:scale(.9); }
+
+.print-bed-wrap {
+  display:flex;flex-direction:column;align-items:center;gap:10px;padding:12px;
+}
+.print-bed {
+  width:min(240px,62vw);height:clamp(100px,25vw,140px);
+  background:linear-gradient(180deg,#0d1b2a,#1b2838);border-radius:10px;
+  border:2px solid rgba(0,229,204,.3);position:relative;overflow:hidden;
+  box-shadow:0 0 16px rgba(0,229,204,.12);
+}
+.print-grid-bg {
+  position:absolute;inset:0;
+  background-image:linear-gradient(rgba(0,229,204,.07) 1px,transparent 1px),
+                   linear-gradient(90deg,rgba(0,229,204,.07) 1px,transparent 1px);
+  background-size:18px 18px;
+}
+.print-arm {
+  position:absolute;top:0;left:10%;right:10%;height:6px;
+  background:linear-gradient(90deg,#ff6d00,#ff9800);border-radius:3px;
+  box-shadow:0 0 8px rgba(255,109,0,.6);
+}
+.print-obj {
+  position:absolute;bottom:0;left:50%;transform:translateX(-50%);
+  font-size:clamp(2.2rem,8vw,3.8rem);
+  height:0;overflow:hidden;display:flex;align-items:flex-end;justify-content:center;
+  transition:height 3s cubic-bezier(.1,.8,.2,1); /* slow build */
+}
+.print-obj.printing { height:100%; }
+.print-scan {
+  position:absolute;height:3px;background:var(--teal);
+  box-shadow:0 0 12px var(--teal);border-radius:2px;left:0;right:0;
+  animation:printScan 3s linear forwards;opacity:0;
+}
+.print-scan.active { opacity:1; }
+@keyframes printScan { from{bottom:0} to{bottom:95%} }
+
+.print-progress {
+  width:100%;max-width:240px;
+}
+.print-layers {
+  display:flex;gap:3px;justify-content:center;flex-wrap:wrap;margin-top:4px;
+}
+.print-layer { width:14px;height:6px;border-radius:2px;background:rgba(0,229,204,.15);border:1px solid rgba(0,229,204,.25);transition:background .3s; }
+.print-layer.done { background:var(--teal); }
+
+.scrape-zone {
+  padding:14px;border-radius:14px;text-align:center;
+  border:2px dashed rgba(0,229,204,.3);cursor:pointer;touch-action:manipulation;
+  font-family:var(--font-title);color:rgba(0,229,204,.8);font-size:.88rem;
+  transition:all .2s;display:none;
+  background:rgba(0,229,204,.05);
+}
+.scrape-zone:active { transform:scale(.97);background:rgba(0,229,204,.12); }
+.scrape-zone.glow { border-color:var(--teal);animation:scrapePulse 1s ease-in-out infinite; }
+@keyframes scrapePulse { 0%,100%{box-shadow:0 0 0 0 rgba(0,229,204,.4)} 50%{box-shadow:0 0 0 10px rgba(0,229,204,0)} }
+
+/* ════════════════════════
+   TOOL WALL
+════════════════════════ */
+.tool-wall { display:grid;grid-template-columns:repeat(4,1fr);gap:8px;padding:12px; }
+.tool-card-wall { border-radius:16px;padding:12px 8px;text-align:center;cursor:pointer;background:rgba(255,255,255,.08);border:2px solid rgba(255,255,255,.15);transition:all .2s;touch-action:manipulation; }
+.tool-card-wall.fix-hint { border-color:var(--gold)!important;background:rgba(255,215,0,.15)!important;box-shadow:0 0 16px rgba(255,215,0,.4)!important; }
+.tool-card-wall:active { transform:scale(.92); }
+.tool-peg {
+  border-radius:16px;border:2.5px solid rgba(255,255,255,.15);cursor:pointer;
+  padding:12px 8px;display:flex;flex-direction:column;align-items:center;gap:5px;
+  background:rgba(10,12,30,.7);backdrop-filter:blur(6px);
+  transition:all .12s;touch-action:manipulation;
+}
+.tool-peg:active { transform:scale(.88) translateY(3px); }
+.tool-peg.grabbed { border-color:var(--gold);background:rgba(255,215,0,.12);animation:toolPulse 1s ease-in-out infinite; }
+@keyframes toolPulse { 0%,100%{box-shadow:0 0 0 0 rgba(255,215,0,.4)} 50%{box-shadow:0 0 0 8px rgba(255,215,0,0)} }
+.tool-peg-emoji { font-size:clamp(1.6rem,5vw,2.2rem); }
+.tool-peg-lbl { font-family:var(--font-title);font-size:.65rem;color:rgba(255,255,255,.8); }
+.tool-peg-uses { font-size:.6rem;color:rgba(255,255,255,.4);font-family:var(--font-body); }
+
+/* Challenge display */
+.challenge-display {
+  padding:12px 14px;
+  display:flex;flex-direction:column;gap:8px;
+}
+.challenge-task {
+  background:rgba(0,0,0,.3);border-radius:12px;padding:10px 14px;
+  font-family:var(--font-title);font-size:.85rem;color:#fff;
+  text-align:center;border:1px solid rgba(255,255,255,.12);
+  min-height:44px;display:flex;align-items:center;justify-content:center;
+}
+.task-progress { display:flex;gap:5px;justify-content:center; }
+.task-dot { width:28px;height:28px;border-radius:8px;background:rgba(255,255,255,.1);border:1.5px solid rgba(255,255,255,.2);display:flex;align-items:center;justify-content:center;font-size:1rem;transition:all .3s; }
+.task-dot.done { background:rgba(255,215,0,.2);border-color:var(--gold); }
+.task-dot.active { border-color:#fff;animation:dotPulse 1s ease-in-out infinite; }
+@keyframes dotPulse { 0%,100%{box-shadow:0 0 0 0 rgba(255,255,255,.3)} 50%{box-shadow:0 0 0 6px rgba(255,255,255,0)} }
+
+/* ════════════════════════
+   FIX-IT BENCH
+════════════════════════ */
+.item-selector { display:flex;gap:10px;justify-content:center;flex-wrap:wrap;padding:10px 12px 6px; }
+.item-card {
+  display:flex;flex-direction:column;align-items:center;gap:5px;
+  padding:12px 14px;border-radius:16px;cursor:pointer;touch-action:manipulation;
+  border:2.5px solid rgba(255,255,255,.15);background:rgba(10,12,30,.7);
+  transition:all .15s;min-width:80px;
+}
+.item-card.selected { border-color:var(--gold);background:rgba(255,215,0,.1); }
+.item-card:active { transform:scale(.92); }
+.item-card-emoji { font-size:clamp(2rem,7vw,3rem); }
+.item-card-label { font-family:var(--font-title);font-size:.7rem;color:rgba(255,255,255,.8); }
+
+.assembly-stage {
+  padding:12px;display:flex;flex-direction:column;align-items:center;gap:10px;
+}
+.parts-display {
+  display:flex;gap:10px;align-items:center;justify-content:center;flex-wrap:wrap;
+  background:rgba(0,0,0,.35);border-radius:14px;padding:14px;width:100%;
+  border:1px solid rgba(255,255,255,.1);min-height:100px;
+  position:relative;
+}
+.part-piece {
+  font-size:clamp(1.8rem,6vw,2.8rem);opacity:.2;
+  filter:grayscale(1) blur(1px);
+  transition:all .4s cubic-bezier(.34,1.56,.64,1);
+  position:relative;
+}
+.part-piece.placed { opacity:1;filter:none; }
+.part-piece.next   { opacity:.5;filter:grayscale(.5);animation:partGlow .8s ease-in-out infinite alternate; }
+@keyframes partGlow { from{filter:grayscale(.5) drop-shadow(0 0 4px rgba(255,215,0,.3))} to{filter:grayscale(0) drop-shadow(0 0 12px rgba(255,215,0,.8))} }
+
+.fix-tools { display:flex;gap:8px;justify-content:center;flex-wrap:wrap;padding:8px 0; }
+.fix-tool-btn {
+  font-size:clamp(1.4rem,4.5vw,2rem);padding:10px 12px;border-radius:14px;
+  border:2px solid rgba(255,255,255,.15);background:rgba(10,12,30,.7);cursor:pointer;
+  touch-action:manipulation;transition:all .12s;
+  display:flex;flex-direction:column;align-items:center;gap:3px;
+}
+.fix-tool-btn.needed { border-color:var(--gold);background:rgba(255,215,0,.1);animation:toolPulse 1s ease-in-out infinite; }
+.fix-tool-btn.wrong  { border-color:#f44336;background:rgba(244,67,54,.1); }
+.fix-tool-btn:active { transform:scale(.88); }
+.fix-tool-lbl { font-family:var(--font-title);font-size:.6rem;color:rgba(255,255,255,.7); }
+
+/* Vibe text */
+.vibe-txt { position:fixed;pointer-events:none;z-index:800;font-family:var(--font-title);font-size:1.1rem;color:var(--gold);text-shadow:0 0 10px rgba(255,215,0,.6);animation:vibeFly .8s ease-out forwards; }
+@keyframes vibeFly { from{transform:translate(0,0);opacity:1} to{transform:translate(0,-60px);opacity:0} }
+button,.zone-card,.tool-peg,.fix-tool-btn,.item-card,.scrape-zone,.print-choice { touch-action:manipulation;-webkit-tap-highlight-color:transparent; }
+
+/* ── HIDDEN JOHNNY ── */
+.johnny-hide {
+  position:fixed; z-index:50;
+  cursor:pointer; touch-action:manipulation;
+  -webkit-tap-highlight-color:transparent;
+  opacity:0; /* starts invisible — fades in after 8s */
+  transition:opacity 1s;
+  animation:none;
+}
+.johnny-peek {
+  font-size:clamp(1.2rem,4vw,1.8rem);
+  display:block;
+  animation:peekBob 2s ease-in-out infinite alternate;
+  filter:drop-shadow(0 2px 4px rgba(0,0,0,.4));
+}
+@keyframes peekBob { from{transform:translateY(0) rotate(-5deg)} to{transform:translateY(-6px) rotate(5deg)} }
+.johnny-pop {
+  position:fixed; z-index:800;
+  display:flex; flex-direction:column; align-items:center; gap:6px;
+  pointer-events:none;
+}
+.johnny-emoji { font-size:clamp(3rem,12vw,5rem); animation:johnnyJump .6s cubic-bezier(.34,1.5,.64,1) forwards; }
+@keyframes johnnyJump { from{transform:scale(0) rotate(-20deg)} to{transform:scale(1) rotate(0)} }
+.johnny-shout { font-family:var(--font-title); font-size:1rem; color:var(--gold); text-shadow:0 2px 8px rgba(0,0,0,.6); white-space:nowrap; }
+</style>
+</head>
+<body class="has-basket">
+<div id="bg-layer" style="background-image:url('bg.png')"></div>
+<div id="stage-overlay"></div>
+<div id="room-hud">
+  <div class="hud-inner">
+    <button id="back-btn" onclick="CN.Room.goBack()">← Back</button>
+    <div class="hud-room-name">🔧 <span>Garage & 3D Lab</span></div>
+    <div class="hud-right">
+      <button class="hud-btn" id="audioBtn" onclick="toggleAudio()">🔊</button>
+      <button class="hud-btn" onclick="CN.Room.goHome()">🏠 Map</button>
+    </div>
+  </div>
+</div>
+<div id="greeting"></div>
+
+<div id="stage">
+
+  <!-- ZONE PICKER -->
+  <div class="zone-picker">
+    <div class="zone-card active" id="zone-print" onclick="openZone('print')">
+      <div class="zone-icon">🖨️</div><div class="zone-label">3D Print Lab</div>
+    </div>
+    <div class="zone-card" id="zone-tools" onclick="openZone('tools')">
+      <div class="zone-icon">🔧</div><div class="zone-label">Tool Wall</div>
+    </div>
+    <div class="zone-card" id="zone-fixit" onclick="openZone('fixit')">
+      <div class="zone-icon">🛠️</div><div class="zone-label">Fix-It Bench</div>
+    </div>
+  </div>
+
+  <!-- ═══ 3D PRINT LAB ═══ -->
+  <div class="activity-panel active glass" id="panel-print">
+    <div class="print-choices" id="printChoices"></div>
+    <div class="print-bed-wrap glass" style="margin:0 12px 12px">
+      <div class="print-bed" id="printBed">
+        <div class="print-grid-bg"></div>
+        <div class="print-arm" id="printArm"></div>
+        <div class="print-obj" id="printObj"></div>
+        <div class="print-scan" id="printScan"></div>
+      </div>
+      <div class="print-progress">
+        <div class="cn-progress"><div class="cn-progress-fill" id="printFill" style="width:0%"></div></div>
+      </div>
+      <div class="print-layers" id="printLayers"></div>
+      <div style="display:flex;gap:8px;justify-content:center;margin-top:6px">
+        <button class="cn-btn" id="printBtn" style="background:linear-gradient(135deg,#00796b,#004d40);font-size:.9rem;padding:10px 20px" onclick="startPrint()">▶ Print It!</button>
+        <button class="cn-btn" style="background:rgba(0,0,0,.3);font-size:.85rem;padding:10px 14px" onclick="resetPrint()">🔄</button>
+      </div>
+      <div class="scrape-zone" id="scrapeZone" onclick="scrape()">
+        👆 Swipe across to scrape it off the bed!
+      </div>
+    </div>
+  </div>
+
+  <!-- ═══ TOOL WALL ═══ -->
+  <div class="activity-panel glass" id="panel-tools">
+    <div class="challenge-display">
+      <div class="challenge-task" id="toolTask">Grab a tool and fix the problem! 🔧</div>
+      <div class="task-progress" id="taskProgress"></div>
+    </div>
+    <div class="tool-wall" id="toolWall"></div>
+  </div>
+
+  <!-- ═══ FIX-IT BENCH ═══ -->
+  <div class="activity-panel glass" id="panel-fixit">
+    <div class="item-selector" id="itemSelector"></div>
+    <div class="assembly-stage">
+      <div class="parts-display" id="partsDisplay"></div>
+      <div class="fix-tools" id="fixTools"></div>
+      <div style="font-family:var(--font-title);font-size:.8rem;color:rgba(255,255,255,.7);text-align:center;padding:4px" id="fixInstruction">Choose something to fix!</div>
+    </div>
+  </div>
+
+</div><!-- /#stage -->
+
+<div id="toybox-bar-wrap">
+  <div class="bar-row"><div class="tb-label">🧸</div><div id="toybox-bar"></div><div id="coin-display">🪙 0</div></div>
+  <div class="bar-row"><div class="tb-label">🧺</div><div id="basket-bar"></div></div>
+</div>
+
+<div id="celebrate">
+  <div class="celebrate-card">
+    <div class="celebrate-emoji" id="celEmoji">🔧</div>
+    <div class="celebrate-title" id="celTitle">Fixed it!</div>
+    <div class="celebrate-msg"   id="celMsg">Great work!</div>
+    <button class="cn-btn cn-btn-lg" style="background:linear-gradient(135deg,#546e7a,#37474f)" onclick="hideCelebrate()">Build More! 🛠️</button>
+  </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/gsap@3.12.5/dist/gsap.min.js"></script>
+<script src="../../shared/cn-core.js"></script>
+<script>
+'use strict';
+const ROOM_ID = 'garage';
+
+function toggleAudio(){ const m=CN.Audio.toggle(); document.getElementById('audioBtn').textContent=m?'🔇':'🔊'; }
+CN.Audio.unlockOnGesture();
+
+/* ══════════════════════════════════
+   3D PRINT DATA
+══════════════════════════════════ */
+const PRINT_ITEMS = [
+  { emoji:'⭐', name:'Star Token',     type:'star_token',    layers:8  },
+  { emoji:'🏆', name:'Trophy Cup',     type:'trophy_token',  layers:12 },
+  { emoji:'🦕', name:'Dinosaur',       type:'dino_token',    layers:10 },
+  { emoji:'🚀', name:'Rocket Ship',    type:'rocket_token',  layers:9  },
+  { emoji:'🎸', name:'Guitar',         type:'guitar_token',  layers:11 },
+  { emoji:'🤖', name:'Robot Chip',     type:'robot_part',    layers:14 },
+  { emoji:'🏰', name:'Castle',         type:'castle_token',  layers:16 },
+  { emoji:'🦋', name:'Butterfly',      type:'butterfly',     layers:7  },
+  { emoji:'🌺', name:'Flower Vase',    type:'flower_vase',   layers:9  },
+  { emoji:'🦄', name:'Unicorn Horn',   type:'unicorn',       layers:13 },
+  { emoji:'🐢', name:'Turtle Shell',   type:'turtle',        layers:8  },
+  { emoji:'🎯', name:'Bullseye Disc',  type:'bullseye',      layers:6  },
+  { emoji:'🧩', name:'Puzzle Piece',   type:'puzzle_piece',  layers:7  },
+  { emoji:'🐉', name:'Dragon Scale',   type:'dragon',        layers:18 },
+  { emoji:'🌙', name:'Moon Charm',     type:'moon_charm',    layers:5  },
+  { emoji:'💎', name:'Crystal Gem',    type:'gem_crystal',   layers:10 },
+];
+let P = { sel:0, printing:false, done:false, layersDone:0, scrapeCount:0, printTimer:null };
+
+/* ══════════════════════════════════
+   TOOL WALL DATA
+══════════════════════════════════ */
+const TOOLS = [
+  { emoji:'🔧', name:'Wrench',      desc:'Tighten bolts' },
+  { emoji:'🪛', name:'Screwdriver', desc:'Turn screws'   },
+  { emoji:'🔨', name:'Hammer',      desc:'Nail it down'  },
+  { emoji:'⚡', name:'Electric',    desc:'Power it up'   },
+  { emoji:'🪚', name:'Saw',         desc:'Cut wood'      },
+  { emoji:'🧲', name:'Magnet',      desc:'Pull metal'    },
+  { emoji:'🔬', name:'Inspect',     desc:'Check it'      },
+  { emoji:'🪝', name:'Hook',        desc:'Hang it up'    },
+];
+const CHALLENGES = [
+  { task:'Tighten a loose bolt',             tools:['🔧'],                 reward:4  },
+  { task:'Fix a stripped screw',             tools:['🪛'],                 reward:4  },
+  { task:'Hammer the nail in',               tools:['🔨'],                 reward:4  },
+  { task:'Hang the shelf',                   tools:['🔨','🔧'],            reward:8  },
+  { task:'Lift the heavy metal part',        tools:['🧲'],                 reward:6  },
+  { task:'Inspect the broken part',          tools:['🔬'],                 reward:6  },
+  { task:'Cut the wood to size',             tools:['🪚'],                 reward:6  },
+  { task:'Hook it onto the rack',            tools:['🪝'],                 reward:5  },
+  { task:'Check and power up the motor',     tools:['🔬','⚡'],            reward:10 },
+  { task:'Saw the plank then nail it down',  tools:['🪚','🔨'],            reward:10 },
+  { task:'Inspect, magnet, then wire it up', tools:['🔬','🧲','⚡'],       reward:15 },
+  { task:'Build the toy box',                tools:['🔨','🪛','🔧'],       reward:16 },
+  { task:'Full repair job',                  tools:['🔬','🔧','🪛','🔨','⚡'], reward:25 },
+];
+let T = { challenge:null, step:0, grabbed:null };
+let activeZone = 'print'; // tracks which panel is open
+
+/* ══════════════════════════════════
+   FIX-IT BENCH DATA
+══════════════════════════════════ */
+const FIX_ITEMS = [
+  {
+    name:'Robot', emoji:'🤖', icon:'🤖',
+    parts:[{e:'🦿',n:'Legs'},{e:'⚙️',n:'Body'},{e:'🦾',n:'L.Arm'},{e:'🦾',n:'R.Arm'},{e:'🤖',n:'Head'}],
+    steps:[{tool:'🔧',say:'Attach the legs!'},{tool:'🪛',say:'Screw in the body!'},{tool:'🔨',say:'Hammer the arms!'},{tool:'🔨',say:'Other arm!'},{tool:'⚡',say:'Power it up!'}],
+    reward:25
+  },
+  {
+    name:'Train', emoji:'🚂', icon:'🚂',
+    parts:[{e:'🛤️',n:'Track'},{e:'🎡',n:'Wheels'},{e:'🚂',n:'Body'},{e:'🔔',n:'Bell'}],
+    steps:[{tool:'🔧',say:'Lay the track!'},{tool:'🪛',say:'Attach wheels!'},{tool:'🔨',say:'Build the body!'},{tool:'⚡',say:'Ring the bell!'}],
+    reward:20
+  },
+  {
+    name:'Guitar', emoji:'🎸', icon:'🎸',
+    parts:[{e:'🪵',n:'Body'},{e:'🎵',n:'Neck'},{e:'🎼',n:'Strings'},{e:'🔩',n:'Tuners'}],
+    steps:[{tool:'🔧',say:'Shape the body!'},{tool:'🪛',say:'Attach the neck!'},{tool:'🧲',say:'Thread strings!'},{tool:'🪛',say:'Tune it up!'}],
+    reward:20
+  },
+];
+let F = { item:null, step:0 };
+
+/* ══════════════════════════════════
+   INIT
+══════════════════════════════════ */
+CN.Room.init(ROOM_ID, async(saved)=>{
+  if(saved){ P.sel=saved.printSel||0; }
+  buildPrintChoices();
+  buildPrintLayers();
+  buildToolWall();
+  buildItemSelector();
+  loadChallenge();
+  await CN.renderBothBars();
+  CN.Audio.bgStart('garage');
+  CN.Room.greet('Welcome to the Garage! Pick an activity! 🔧');
+  if(window.gsap) CN.Anim.staggerIn(document.getElementById('zone-picker')||document.querySelector('.zone-picker'));
+});
+
+/* ══════════════════════════════════
+   ZONE SWITCHING
+══════════════════════════════════ */
+function openZone(id){
+  activeZone = id;
+  document.querySelectorAll('.zone-card').forEach(c=>c.classList.remove('active'));
+  document.querySelectorAll('.activity-panel').forEach(p=>p.classList.remove('active'));
+  document.getElementById('zone-'+id).classList.add('active');
+  const panel = document.getElementById('panel-'+id);
+  panel.classList.add('active');
+  CN.FX.haptic('tap'); CN.Audio.play('tap');
+  if(window.gsap) gsap.fromTo(panel,{opacity:0,y:20},{opacity:1,y:0,duration:.35,ease:'back.out(1.4)'});
+  const msgs={print:'3D Printer! Choose an object to print! 🖨️',tools:'Tool Wall! Grab a tool and fix something! 🔧',fixit:'Fix-It Bench! Choose something to repair! 🛠️'};
+  CN.Room.greet(msgs[id]);
+  // Load fresh challenge when opening tool wall
+  if(id==='tools' && !T.challenge) loadChallenge();
+}
+
+/* ══════════════════════════════════
+   3D PRINT LAB
+══════════════════════════════════ */
+function buildPrintChoices(){
+  const wrap=document.getElementById('printChoices');
+  wrap.innerHTML='';
+  PRINT_ITEMS.forEach((it,i)=>{
+    const el=document.createElement('div');
+    el.className='print-choice'+(i===P.sel?' selected':'');
+    el.innerHTML=`<div>${it.emoji}</div><div class="print-choice-label">${it.name}</div>`;
+    el.addEventListener('pointerdown',()=>{
+      P.sel=i; P.done=false; P.layersDone=0;
+      document.querySelectorAll('.print-choice').forEach(x=>x.classList.remove('selected'));
+      el.classList.add('selected');
+      document.getElementById('printObj').textContent=it.emoji;
+      document.getElementById('printObj').classList.remove('printing');
+      document.getElementById('scrapeZone').style.display='none';
+      document.getElementById('scrapeZone').classList.remove('glow');
+      P.scrapeCount=0;
+      buildPrintLayers();
+      if(window.gsap) CN.Anim.pop(el);
+    });
+    wrap.appendChild(el);
+  });
+  document.getElementById('printObj').textContent = PRINT_ITEMS[P.sel].emoji;
+  if(window.gsap) setTimeout(()=>CN.Anim.staggerIn(wrap),200);
+}
+
+function buildPrintLayers(){
+  const wrap=document.getElementById('printLayers');
+  const total=PRINT_ITEMS[P.sel].layers;
+  wrap.innerHTML='';
+  for(let i=0;i<total;i++){
+    const d=document.createElement('div');
+    d.className='print-layer'+(i<P.layersDone?' done':'');
+    wrap.appendChild(d);
+  }
+}
+
+function startPrint(){
+  if(P.printing||P.done){ CN.Room.greet('Wait for it to finish! ⏳'); return; }
+  P.printing=true; P.layersDone=0;
+  const it=PRINT_ITEMS[P.sel];
+  document.getElementById('printObj').textContent=it.emoji;
+  document.getElementById('printFill').style.width='0%';
+
+  // Activate scan line
+  const scan=document.getElementById('printScan');
+  scan.classList.remove('active');
+  void scan.offsetWidth;
+  scan.classList.add('active');
+  scan.style.animationDuration=it.layers*0.25+'s';
+
+  CN.Room.greet(`Printing ${it.name}... ${it.layers} layers! 🖨️`);
+  CN.Audio.play('printing'); CN.FX.haptic('tap');
+
+  // Animate arm
+  if(window.gsap) gsap.to('#printArm',{x:['0%','80%','0%'],duration:it.layers*.25,repeat:1,ease:'sine.inOut'});
+
+  // Layer-by-layer build
+  let l=0;
+  const interval=setInterval(()=>{
+    l++;
+    P.layersDone=l;
+    document.querySelectorAll('.print-layer')[l-1]?.classList.add('done');
+    if(window.gsap) gsap.to('#printFill',{width:(l/it.layers*100)+'%',duration:.2});
+    else document.getElementById('printFill').style.width=(l/it.layers*100)+'%';
+    // Slowly reveal object
+    const pct = l/it.layers*100;
+    if(pct>30) document.getElementById('printObj').classList.add('printing');
+
+    if(l>=it.layers){
+      clearInterval(interval);
+      P.printing=false; P.done=true;
+      CN.Room.greet(`${it.name} printed! Now scrape it off! 👆`);
+      CN.Audio.play('success'); CN.FX.haptic('success');
+      const sz=document.getElementById('scrapeZone');
+      sz.style.display='block'; sz.classList.add('glow');
+    }
+  }, it.layers<=8 ? 350 : 280);
+}
+
+let scrapeX=0;
+function scrape(){
+  if(!P.done) return;
+  P.scrapeCount++;
+  CN.Audio.play('scrape'); CN.FX.haptic('tap');
+  const msgs=['Scrape harder! 💪','Keep going! 🔥','Almost free! ✨','Pop! 🎉'];
+  document.getElementById('scrapeZone').textContent=msgs[Math.min(P.scrapeCount-1,3)];
+  if(window.gsap) gsap.to('#printObj',{x:(Math.random()-0.5)*12,duration:.06,yoyo:true,repeat:3,ease:'none',onComplete:()=>gsap.to('#printObj',{x:0,duration:.1})});
+
+  if(P.scrapeCount>=4){
+    const it=PRINT_ITEMS[P.sel];
+    document.getElementById('printObj').classList.remove('printing');
+    document.getElementById('scrapeZone').style.display='none';
+    document.getElementById('scrapeZone').classList.remove('glow');
+    P.done=false; P.scrapeCount=0; P.layersDone=0; buildPrintLayers();
+    document.getElementById('printFill').style.width='0%';
+
+    CN.FX.stars(window.innerWidth/2,window.innerHeight*.4,12);
+    CN.FX.haptic('success'); CN.Audio.play('celebrate');
+    showCelebrate(it.emoji,'Printed!',`Your ${it.name} is ready to use! 🎉`);
+
+    CN.smartAdd({type:it.type,emoji:it.emoji,name:it.name,origin:ROOM_ID,data:{}})
+      .then(slot=>{ CN.renderBothBars(); if(slot>=0) CN.Room.greet(`${it.emoji} in toybox! 🎒`); });
+    CN.addCoins(12).then(()=>CN.updateCoinDisplay());
+    CN.Room.save(ROOM_ID,{printSel:P.sel});
+  }
+}
+
+function resetPrint(){
+  P.printing=false; P.done=false; P.layersDone=0; P.scrapeCount=0;
+  document.getElementById('printObj').classList.remove('printing');
+  document.getElementById('scrapeZone').style.display='none';
+  document.getElementById('scrapeZone').classList.remove('glow');
+  document.getElementById('printFill').style.width='0%';
+  buildPrintLayers();
+  const scan=document.getElementById('printScan'); scan.classList.remove('active');
+  if(P.printTimer) clearInterval(P.printTimer);
+}
+
+/* ══════════════════════════════════
+   TOOL WALL
+══════════════════════════════════ */
+function buildToolWall(){
+  const wall=document.getElementById('toolWall');
+  if(!wall) return;
+  wall.innerHTML = TOOLS.map(t=>`
+    <div class="tool-card-wall" data-emoji="${t.emoji}"
+         onclick="smartTap('${t.emoji}','${t.name}',this)"
+         title="${t.name}: ${t.desc}">
+      <div style="font-size:2rem">${t.emoji}</div>
+      <div style="font-family:var(--font-title);font-size:.6rem;color:rgba(255,255,255,.7);margin-top:3px">${t.name}</div>
+    </div>`).join('');
+}
+
+/* Routes tool-wall tap to the right activity based on active zone */
+function smartTap(emoji, name, el){
+  CN.Audio.play(emoji==='🔧'?'wrench':emoji==='🔨'?'hammer':'drill');
+  CN.FX.haptic('tap');
+  if(window.gsap) CN.Anim.pop(el);
+  if(activeZone==='fixit'){
+    useFixTool(emoji, el);
+  } else {
+    // Tool wall challenge
+    grabTool(emoji, name, el);
+  }
+}
+
+function loadChallenge(){
+  T.challenge=CHALLENGES[Math.floor(Math.random()*CHALLENGES.length)];
+  T.step=0;
+  renderChallenge();
+}
+
+function renderChallenge(){
+  if(!T.challenge) return;
+  document.getElementById('toolTask').textContent=T.challenge.task+' 🔧';
+  const prog=document.getElementById('taskProgress');
+  prog.innerHTML='';
+  T.challenge.tools.forEach((tool,i)=>{
+    const d=document.createElement('div');
+    d.className='task-dot'+(i<T.step?' done':i===T.step?' active':'');
+    d.textContent=i<T.step?'✅':tool;
+    prog.appendChild(d);
+  });
+}
+
+function grabTool(emoji, name, el){
+  if(!T.challenge){ loadChallenge(); }
+  const needed=T.challenge.tools[T.step];
+
+  if(emoji===needed){
+    T.step++;
+    el.classList.add('grabbed');
+    setTimeout(()=>el.classList.remove('grabbed'),800);
+    spawnVibe(el,emoji);
+    renderChallenge();
+    CN.Room.greet(`${emoji} — nice work! ${T.step}/${T.challenge.tools.length} done!`);
+
+    if(T.step>=T.challenge.tools.length){
+      setTimeout(()=>{
+        CN.Audio.play('celebrate'); CN.FX.haptic('success');
+        CN.Coins.add(4,'garage_tool'); renderToyboxBar(); showCelebrate('🔧','Job Done! +4 🪙',T.challenge.task+' — complete! 🌟');
+        CN.addCoins(T.challenge.reward).then(()=>CN.updateCoinDisplay());
+        setTimeout(()=>{ hideCelebrate(); loadChallenge(); },4500);
+      },400);
+    }
+  } else {
+    CN.Audio.play('error'); CN.FX.haptic('error');
+    if(window.gsap) CN.Anim.shake(el);
+    CN.Room.greet(`Need ${needed} for this step! 👆`);
+  }
+}
+
+/* ══════════════════════════════════
+   FIX-IT BENCH
+══════════════════════════════════ */
+function buildItemSelector(){
+  const wrap=document.getElementById('itemSelector');
+  wrap.innerHTML='';
+  FIX_ITEMS.forEach((item,i)=>{
+    const el=document.createElement('div');
+    el.className='item-card';
+    el.innerHTML=`<div class="item-card-emoji">${item.icon}</div><div class="item-card-label">${item.name}</div>`;
+    el.addEventListener('pointerdown',()=>selectFixItem(item,el));
+    wrap.appendChild(el);
+  });
+  if(window.gsap) setTimeout(()=>CN.Anim.staggerIn(wrap),200);
+}
+
+function selectFixItem(item,el){
+  F.item=item; F.step=0;
+  document.querySelectorAll('.item-card').forEach(c=>c.classList.remove('selected'));
+  el.classList.add('selected');
+  CN.FX.haptic('tap'); CN.Audio.play('tap');
+  if(window.gsap) CN.Anim.pop(el);
+  renderAssembly();
+  buildFixTools();
+  CN.Room.greet(`Let's fix the ${item.name}! ${item.steps[0].say}`);
+}
+
+function renderAssembly(){
+  if(!F.item) return;
+  const display=document.getElementById('partsDisplay');
+  display.innerHTML='';
+  F.item.parts.forEach((part,i)=>{
+    const el=document.createElement('div');
+    el.className='part-piece'+(i<F.step?' placed':i===F.step?' next':'');
+    el.id='part_'+i;
+    el.title=part.n;
+    el.textContent=part.e;
+    display.appendChild(el);
+  });
+  document.getElementById('fixInstruction').textContent=
+    F.step<F.item.steps.length ? F.item.steps[F.step].say : '🎉 All done!';
+}
+
+function buildFixTools(){
+  if(!F.item) return;
+  const fixToolsEl = document.getElementById('fixTools');
+  if(!fixToolsEl) return;
+  
+  const step = F.item.steps[F.step];
+  if(!step){ fixToolsEl.innerHTML=''; return; }
+  
+  // Render ALL tools as buttons — correct one glows gold
+  fixToolsEl.innerHTML = TOOLS.map(t => {
+    const isNeeded = (t.emoji === step.tool);
+    return `<button class="fix-tool-btn ${isNeeded?'needed':''}"
+      onclick="useFixTool('${t.emoji}',this)"
+      style="background:${isNeeded?'linear-gradient(135deg,#ffd700,#ff8f00)':'rgba(255,255,255,.1)'};
+             border:2px solid ${isNeeded?'#ffd700':'rgba(255,255,255,.2)'};
+             border-radius:14px;padding:10px 8px;cursor:pointer;touch-action:manipulation;
+             font-size:1.8rem;display:flex;flex-direction:column;align-items:center;gap:3px;
+             min-width:52px;transition:all .15s;box-shadow:${isNeeded?'0 0 16px rgba(255,215,0,.5)':'none'};
+             -webkit-tap-highlight-color:transparent;">
+      ${t.emoji}
+      <span style="font-family:var(--font-title);font-size:.5rem;color:${isNeeded?'#1a1a1a':'rgba(255,255,255,.6)'};">${t.name}</span>
+    </button>`;
+  }).join('');
+  
+  // Update instruction
+  const instr = document.getElementById('fixInstruction');
+  if(instr) instr.textContent = '👆 ' + step.say;
+  
+  // GSAP pulse on the needed tool
+  if(window.gsap){
+    fixToolsEl.querySelectorAll('.fix-tool-btn.needed').forEach(el=>{
+      gsap.to(el,{scale:1.1,duration:.5,yoyo:true,repeat:-1,ease:'sine.inOut'});
+    });
+  }
+}
+
+function useFixTool(emoji,el){
+  if(!F.item){ CN.Room.greet('Choose something to fix first!'); return; }
+  if(F.step>=F.item.steps.length){ CN.Room.greet('Already fixed! Great work!'); return; }
+
+  const needed=F.item.steps[F.step].tool;
+  const soundMap={'🔧':'wrench','🪛':'drill','🔨':'hammer','⚡':'robotPowerUp','🧲':'tap','🔬':'tap'};
+  CN.Audio.play(soundMap[emoji]||'tap'); CN.FX.haptic('tap');
+
+  if(emoji===needed){
+    CN.FX.haptic('success');
+    spawnVibe(el,emoji);
+    // Animate part snapping in
+    const partEl=document.getElementById('part_'+F.step);
+    if(partEl && window.gsap){
+      gsap.fromTo(partEl,{scale:0,rotation:-20,filter:'grayscale(1)'},
+        {scale:1,rotation:0,filter:'grayscale(0)',duration:.6,ease:'back.out(2.5)'});
+    }
+    F.step++;
+    renderAssembly();
+    buildFixTools();
+    CN.Room.greet(`${emoji} — ${F.step}/${F.item.parts.length} parts placed! 💪`);
+
+    if(F.step>=F.item.parts.length){
+      setTimeout(()=>{
+        CN.Audio.play('celebrate'); CN.FX.haptic('success');
+        CN.FX.stars(window.innerWidth/2,window.innerHeight*.35,14);
+        CN.Coins.add(5,'garage_fix'); renderToyboxBar(); showCelebrate(F.item.emoji,`${F.item.name} Fixed! +5 🪙`,`Amazing work, Engineer! 🌟`);
+        CN.addCoins(F.item.reward).then(()=>CN.updateCoinDisplay());
+        // Add token to toybox
+        CN.smartAdd({type:'star_token',emoji:'⭐',name:F.item.name+' Star',origin:ROOM_ID,data:{}})
+          .then(()=>CN.renderBothBars());
+        F.step=0; F.item=null;
+        document.querySelectorAll('.item-card').forEach(c=>c.classList.remove('selected'));
+      },500);
+    }
+  } else {
+    CN.Audio.play('error'); CN.FX.haptic('error');
+    if(window.gsap) CN.Anim.shake(el);
+    CN.Room.greet(`Need ${needed} for this step! Look for the glowing tool! 👆`);
+  }
+}
+
+/* ══════════════════════════════════
+   SHARED UTILS
+══════════════════════════════════ */
+function spawnVibe(el,emoji){
+  const rect=el.getBoundingClientRect();
+  for(let i=0;i<3;i++){
+    const v=document.createElement('div');
+    v.className='vibe-txt';
+    v.textContent=emoji;
+    v.style.cssText=`left:${rect.left+Math.random()*rect.width}px;top:${rect.top-10}px;animation-delay:${i*.08}s;`;
+    document.body.appendChild(v);
+    setTimeout(()=>v.remove(),900);
+  }
+}
+
+function showCelebrate(emoji,title,msg){
+  document.getElementById('celEmoji').textContent=emoji;
+  document.getElementById('celTitle').textContent=title;
+  document.getElementById('celMsg').textContent=msg;
+  const ov=document.getElementById('celebrate');
+  ov.classList.add('show');
+  if(window.gsap) CN.Anim.celebrateIn(document.querySelector('.celebrate-card'));
+  CN.Audio.play('celebrate');
+  (window.gsap?CN.Anim.confettiBurst(window.innerWidth/2,window.innerHeight*.3,28):CN.FX.confetti(28));
+  setTimeout(hideCelebrate,4200);
+}
+function hideCelebrate(){
+  const ov=document.getElementById('celebrate');
+  const cd=document.querySelector('.celebrate-card');
+  if(window.gsap&&cd){ CN.Anim.celebrateOut(cd,ov); } else { ov.classList.remove('show'); }
+}
+
+document.addEventListener('DOMContentLoaded',()=>{
+  try{ if(localStorage.getItem('cn_muted')==='1') document.getElementById('audioBtn').textContent='🔇'; }catch(e){}
+});
+</script>
+
+<!-- ══ HIDDEN JOHNNY ══ -->
+<div id="johnnyHide" class="johnny-hide" style="right:4%;bottom:30%" onclick="findJohnny()" title="Who's hiding?">
+  <span class="johnny-peek">👀</span>
+</div>
+<div id="johnnyPop" class="johnny-pop" style="display:none">
+  <span class="johnny-emoji">👦</span>
+  <div class="johnny-shout">Found me! 😄 (behind the tool wall)</div>
+</div>
+
+<script>
+/* ══ HIDDEN JOHNNY ══ */
+let _johnnyFound = false;
+(function initJohnny(){
+  // Fade in after 8s so player has time to explore first
+  setTimeout(()=>{
+    const el=document.getElementById('johnnyHide');
+    if(el && !_johnnyFound) el.style.opacity='1';
+  }, 8000);
+})();
+
+function findJohnny(){
+  if(_johnnyFound) return;
+  _johnnyFound = true;
+  const hide=document.getElementById('johnnyHide');
+  const pop =document.getElementById('johnnyPop');
+  if(!hide||!pop) return;
+
+  hide.style.opacity='0';
+  hide.style.pointerEvents='none';
+
+  // Position pop where hide was
+  const rect=hide.getBoundingClientRect();
+  pop.style.cssText=`position:fixed;left:${rect.left}px;top:${rect.top-40}px;z-index:800;display:flex;flex-direction:column;align-items:center;gap:6px;pointer-events:none;`;
+  pop.style.display='flex';
+
+  CN.Audio.play('celebrate'); CN.FX.haptic('success');
+  CN.Coins.add(5,'found_johnny'); renderToyboxBar();
+  CN.Room.greet("You found Johnny! 👦 +5 🪙 Golden coins!");
+
+  // Burst stars from his position
+  CN.FX.stars(rect.left+rect.width/2, rect.top, 12, ['⭐','🌟','💫','✨','🎉','👦']);
+
+  if(window.gsap){
+    gsap.timeline()
+      .from(pop.querySelector('.johnny-emoji'),{scale:0,rotation:-20,duration:.5,ease:'back.out(3)'})
+      .from(pop.querySelector('.johnny-shout'),{y:10,opacity:0,duration:.3},'-=.2')
+      .to(pop,{y:-30,opacity:0,duration:.6,delay:2,ease:'power2.in',onComplete:()=>pop.style.display='none'});
+  } else {
+    setTimeout(()=>pop.style.display='none', 2500);
+  }
+}
+
+</script>
+</body>
+</html>
