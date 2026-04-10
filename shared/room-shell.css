@@ -30,7 +30,7 @@
 
   /* Spacing */
   --hud-h:    58px;
-  --toybox-h: 70px;
+  --toybox-h: 96px;
   --safe-top: max(env(safe-area-inset-top), 10px);
   --safe-bot: max(env(safe-area-inset-bottom), 10px);
 }
@@ -48,13 +48,28 @@ html, body {
   touch-action: manipulation;
 }
 
+
+/* ── BACKGROUND LAYER (fixed, full screen, behind everything) ── */
+/* Use <div id="bg-layer"> in each room instead of body background */
+/* This works correctly on mobile Safari where background-attachment:fixed breaks */
+#bg-layer {
+  position: fixed;
+  inset: 0;
+  z-index: -1;
+  background-size: cover;
+  background-position: center center;
+  background-repeat: no-repeat;
+}
+
 /* ── ROOM STAGE ── */
 #stage {
   position: fixed;
   top: var(--hud-h);
   left: 0; right: 0;
   bottom: var(--toybox-h);
-  overflow: hidden;
+  overflow-y: auto;
+  overflow-x: hidden;
+  -webkit-overflow-scrolling: touch;
 }
 
 /* ── HUD (top bar) ── */
@@ -135,43 +150,53 @@ html, body {
   border-bottom-color: #ff6eb4; border-top: none;
 }
 
-/* ── TOYBOX BAR ── */
+/* ── DUAL BAR (Toybox + Basket) ── */
 #toybox-bar-wrap {
   position: fixed; bottom: 0; left: 0; right: 0;
   z-index: 300;
-  padding: 0 14px var(--safe-bot);
+  padding: 4px 10px var(--safe-bot);
   background: var(--glass-bg);
   backdrop-filter: var(--glass-blur); -webkit-backdrop-filter: var(--glass-blur);
   border-top: 1px solid var(--glass-border);
-  display: flex; align-items: center; gap: 8px;
-  height: var(--toybox-h);
+  display: flex; flex-direction: column; gap: 3px;
+}
+.bar-row {
+  display: flex; align-items: center; gap: 5px; height: 44px;
 }
 .tb-label {
   font-family: var(--font-title);
-  font-size: .8rem; color: rgba(255,255,255,.45); flex-shrink: 0;
+  font-size: .68rem; color: rgba(255,255,255,.5); flex-shrink: 0;
+  writing-mode: horizontal-tb; width: 24px; text-align: center;
 }
-#toybox-bar {
-  display: flex; gap: 8px; flex: 1;
+#toybox-bar, #basket-bar {
+  display: flex; gap: 4px; flex: 1; overflow-x: auto;
+  scrollbar-width: none;
+}
+#toybox-bar::-webkit-scrollbar, #basket-bar::-webkit-scrollbar { display:none; }
+#coin-display {
+  font-family: var(--font-title); font-size: .75rem;
+  color: var(--gold); flex-shrink: 0; padding: 0 6px;
+  text-shadow: 0 0 8px rgba(255,215,0,.4);
 }
 .tb-slot {
-  flex: 1; max-width: 60px; height: 46px;
-  border-radius: 13px;
+  flex: 0 0 38px; height: 38px;
+  border-radius: 10px;
   background: rgba(255,255,255,.07);
-  border: 2px dashed rgba(255,255,255,.2);
+  border: 1.5px dashed rgba(255,255,255,.2);
   display: flex; align-items: center; justify-content: center;
   cursor: pointer; position: relative;
-  transition: all .2s;
+  transition: all .2s; touch-action: manipulation;
 }
 .tb-slot.filled {
   background: rgba(255,255,255,.14);
   border-style: solid; border-color: rgba(255,255,255,.3);
 }
 .tb-slot:active { transform: scale(.88); }
-.tb-emoji { font-size: 1.4rem; }
+.tb-emoji { font-size: 1.15rem; }
 .tb-num {
-  position: absolute; bottom: 2px; right: 5px;
-  font-size: .5rem; font-weight: 900;
-  color: rgba(255,255,255,.35);
+  position: absolute; bottom: 1px; right: 3px;
+  font-size: .45rem; font-weight: 900;
+  color: rgba(255,255,255,.3);
   font-family: var(--font-body);
 }
 
@@ -297,3 +322,107 @@ button, .cn-btn, .swatch, .block, .pad, .key, .loop-btn,
   -webkit-tap-highlight-color: transparent;
   cursor: pointer;
 }
+
+/* basket-bar-wrap removed — now inside #toybox-bar-wrap */
+
+/* ══════════════════════════════════════
+   CN.Hotspots — Room Zone System
+══════════════════════════════════════ */
+.hs-zone {
+  /* base styles set inline; these add visual affordance */
+}
+.hs-zone:hover, .hs-zone:focus {
+  background: rgba(255,255,255,.08) !important;
+}
+.hs-label {
+  display:flex; flex-direction:column; align-items:center; gap:2px;
+  text-align:center; pointer-events:none;
+  text-shadow:0 2px 8px rgba(0,0,0,.9), 0 0 20px rgba(0,0,0,.8);
+}
+.hs-emoji {
+  font-size:clamp(1.2rem,4vw,2rem);
+  display:block;
+  filter:drop-shadow(0 2px 6px rgba(0,0,0,.7));
+}
+.hs-text {
+  font-family:var(--font-title);
+  font-size:clamp(.55rem,1.8vw,.75rem);
+  color:#fff;
+  background:rgba(0,0,0,.55);
+  backdrop-filter:blur(4px);
+  border-radius:8px;
+  padding:2px 7px;
+  white-space:nowrap;
+  letter-spacing:.02em;
+  border:1px solid rgba(255,255,255,.2);
+}
+.hs-ring {
+  position:absolute; inset:-6px; border-radius:50%;
+  border:2px solid rgba(255,255,255,.25);
+  animation:hsRingPulse 2.5s ease-in-out infinite;
+  pointer-events:none;
+}
+@keyframes hsRingPulse {
+  0%,100% { transform:scale(1);   opacity:.4; }
+  50%      { transform:scale(1.1); opacity:.9; }
+}
+.hs-zone.hs-active .hs-ring {
+  border-color:var(--gold);
+  box-shadow:0 0 16px rgba(255,215,0,.4);
+  animation:hsRingActive 1s ease-in-out infinite;
+}
+@keyframes hsRingActive {
+  0%,100% { box-shadow:0 0 8px rgba(255,215,0,.4); }
+  50%      { box-shadow:0 0 24px rgba(255,215,0,.8); }
+}
+
+/* Activity panel slide-in */
+.room-panel {
+  position:fixed; inset:0;
+  z-index:200;
+  display:flex; flex-direction:column;
+  background:rgba(10,10,30,.92);
+  backdrop-filter:blur(16px);
+  -webkit-backdrop-filter:blur(16px);
+  overflow-y:auto;
+  transform:translateY(100%);
+  transition:transform .35s cubic-bezier(.34,1.2,.64,1);
+  padding-bottom: calc(var(--toybox-h) + 58px + 16px);
+}
+.room-panel.open {
+  transform:translateY(0);
+}
+.room-panel-hud {
+  display:flex; align-items:center; gap:10px;
+  padding:10px 14px 8px;
+  border-bottom:1px solid rgba(255,255,255,.1);
+  flex-shrink:0;
+  background:rgba(0,0,0,.3);
+}
+.panel-close-btn {
+  width:40px; height:40px; border-radius:12px; border:none;
+  background:rgba(255,255,255,.12); border:1.5px solid rgba(255,255,255,.2);
+  color:#fff; font-size:1.1rem; cursor:pointer; flex-shrink:0;
+  touch-action:manipulation;
+  transition:all .15s;
+}
+.panel-close-btn:active { transform:scale(.9); background:rgba(255,255,255,.2); }
+.panel-title {
+  font-family:var(--font-title); font-size:1rem; color:#fff; flex:1;
+}
+.panel-body {
+  flex:1; padding:12px 14px; display:flex; flex-direction:column; gap:10px;
+}
+
+/* Hotspot scene wrapper */
+.hs-scene {
+  position:relative; width:100%;
+  flex-shrink:0;
+  overflow:hidden;
+}
+.hs-scene img.scene-bg {
+  width:100%; display:block;
+  border-radius:16px;
+  max-height:42vh; object-fit:cover; object-position:center top;
+}
+#hs-layer { position:absolute; inset:0; }

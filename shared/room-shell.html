@@ -60,7 +60,14 @@ body {
   <!-- ⬛ Room content -->
 </div>
 
-<!-- Toybox Bar -->
+<!-- Basket Bar (food items) -->
+<div id="basket-bar-wrap">
+  <div class="basket-lbl">🧺</div>
+  <div id="basket-bar"></div>
+  <div id="coin-display">🪙 0</div>
+</div>
+
+<!-- Toybox Bar (toy items) -->
 <div id="toybox-bar-wrap">
   <div class="tb-label">🧸</div>
   <div id="toybox-bar"></div>
@@ -85,6 +92,7 @@ body {
 const ROOM_ID = '⬛'; // e.g. 'kitchen'
 
 /* ── ROOM INIT ── */
+document.body.classList.add("has-basket");
 CN.Room.init(ROOM_ID, async (savedState) => {
   // ⬛ Restore room from saved state if it exists
   if (savedState) {
