@@ -6,7 +6,7 @@
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="theme-color" content="#1565c0">
-<title>Cathy's Neighborhood v5.2</title>
+<title>Cathy's Neighborhood v5.3</title>
 <link rel="manifest" href="manifest.json">
 
 <!-- PWA / iOS install icons -->
@@ -43,7 +43,7 @@
    v2.9 — PWA icons, .nojekyll, 404.html, apple-touch-icon, all GitHub Pages install requirements
    v3.0 — GSAP animation system: spring physics, wobble reactions, elastic confetti, smooth transitions everywhere
    v3.1 — Full audio engine (synth SFX + bg music per room), celebrate close fixed, kitchen chopping + sizzle pan
-   v5.2 — Pond rebuilt (GSAP ripples, hunger system, food arcs, animal wobbles), Mower fixed (SVG mower + pointer events), Driveway tool order fixed, Salon spray fixed (synth SFX + bg music per room), celebrate close fixed, kitchen chopping + sizzle pan: spring physics, wobble reactions, elastic confetti, smooth transitions everywhere, .nojekyll, 404.html, apple-touch-icon, all GitHub Pages install requirements, driveway 3-step wash, distinct drum sounds, robot assembly, SVG nails, mower image
+   v5.3 — Pond rebuilt (GSAP ripples, hunger system, food arcs, animal wobbles), Mower fixed (SVG mower + pointer events), Driveway tool order fixed, Salon spray fixed (synth SFX + bg music per room), celebrate close fixed, kitchen chopping + sizzle pan: spring physics, wobble reactions, elastic confetti, smooth transitions everywhere, .nojekyll, 404.html, apple-touch-icon, all GitHub Pages install requirements, driveway 3-step wash, distinct drum sounds, robot assembly, SVG nails, mower image
 ───────────────────────────────────────── */
 :root {
   --font-title:'Fredoka One',cursive;
@@ -151,7 +151,7 @@ html,body{width:100%;height:100%;overflow:hidden;background:#1a6bc7;font-family:
 .enter-btn{width:100%;padding:17px;border-radius:18px;border:2px solid rgba(255,255,255,.35);background:rgba(255,255,255,.22);font-family:var(--font-title);font-size:1.25rem;color:#fff;cursor:pointer;letter-spacing:.02em;display:flex;align-items:center;justify-content:center;gap:8px;transition:background .2s,transform .15s;box-shadow:0 6px 20px rgba(0,0,0,.25);}
 .enter-btn:hover{background:rgba(255,255,255,.3);}
 .enter-btn:active{transform:scale(.97);}
-.close-btn{position:absolute;top:14px;right:14px;width:38px;height:38px;border-radius:50%;border:none;background:rgba(0,0,0,.28);color:#fff;font-size:1.2rem;cursor:pointer;display:flex;align-items:center;justify-content:center;border:1px solid rgba(255,255,255,.2);transition:background .2s,transform .15s;}
+.close-btn{position:absolute;top:12px;right:12px;width:46px;height:46px;border-radius:50%;border:none;background:rgba(0,0,0,.35);color:#fff;font-size:1.3rem;cursor:pointer;display:flex;align-items:center;justify-content:center;border:1.5px solid rgba(255,255,255,.3);transition:background .2s,transform .15s;touch-action:manipulation;-webkit-tap-highlight-color:transparent;z-index:10;}
 .close-btn:hover{background:rgba(255,255,255,.18);transform:scale(1.08);}
 
 /* PARENT GATE */
@@ -202,7 +202,7 @@ body.edit-mode .zone-label{opacity:1!important;}
 <!-- HUD -->
 <div id="hud">
   <div class="hud-bar">
-    <div class="hud-title">🌟 Cathy's Neighborhood <span style="font-size:.7em;opacity:.6">v5.2</span></div>
+    <div class="hud-title">🌟 Cathy's Neighborhood <span style="font-size:.7em;opacity:.6">v5.3</span></div>
     <div id="coin-display" onclick="showCoinInfo()" title="Your coins — keep exploring to earn more!" style="font-family:var(--font-title);font-size:.85rem;color:var(--gold);text-shadow:0 0 8px rgba(255,215,0,.4);padding:4px 10px;background:rgba(0,0,0,.2);border-radius:10px;border:1px solid rgba(255,215,0,.2)">🪙 0</div>
       <div class="hud-right">
       <button class="hud-btn" id="audioBtn" onclick="toggleAudio()" title="Toggle sound">🔊</button>
@@ -258,7 +258,7 @@ body.edit-mode .zone-label{opacity:1!important;}
     <button class="pg-btn" onclick="toggleEdit();closePG()" style="background:linear-gradient(135deg,#1565c0,#0d47a1)">✏️ Edit Zone Layout</button>
         <button class="pg-btn danger" onclick="resetGame()">🔄 Reset All Progress</button>
     <div style="font-family:var(--font-title);font-size:.6rem;color:rgba(255,255,255,.35);text-align:center;margin-top:4px">
-      v5.2 — cathyshood
+      v5.3 — cathyshood
     </div>
     <button class="pg-btn back" onclick="closePG()">← Back to Play</button>
   </div>
@@ -472,6 +472,14 @@ function placeZone(el,r){
   el.style.top=(y-ry)+'px';
   el.style.width=(rx*2)+'px';
   el.style.height=(ry*2)+'px';
+  // Direct touchstart for mobile — faster than click, not blocked by pan handler
+  el.addEventListener('touchstart', e=>{
+    e.preventDefault(); // prevent pan handler taking over
+    e.stopPropagation();
+    const room=r; // capture
+    const t=e.changedTouches[0];
+    zClick(room, {clientX:t.clientX, clientY:t.clientY, changedTouches:e.changedTouches});
+  }, {passive:false});
 }
 
 /* ── TRANSFORM ──────────────────────────────────────────── */
@@ -575,6 +583,7 @@ function updateMM(){
 
 /* ── ZONE CLICK ─────────────────────────────────────────── */
 function zClick(room,e){
+  if(e && e.stopPropagation) e.stopPropagation();
   // Ripple effect on the zone
   const el=document.getElementById('z_'+room.id);
   const rip=document.createElement('div');
@@ -623,10 +632,24 @@ function openModal(room){
     +(room.stub?'<div class="coming-tag">🚧 Coming soon — building this room! 🚧</div>':'');
   document.getElementById('enterLbl').textContent=room.stub?'Peek Inside!':(room.entranceLabel||"Let's Go!");
   document.getElementById('modal-bg').classList.add('open');
-  if(window.gsap) CN.Anim.celebrateIn(document.getElementById('mCard'));
+  // Use CSS transition instead of GSAP so closeModal can cleanly reverse it
+  // Reset first, then let CSS transition animate in
+  const card=document.getElementById('mCard');
+  if(window.gsap){ gsap.killTweensOf(card); }
+  card.style.transform=''; card.style.opacity='';
 }
 
-function closeModal(){document.getElementById('modal-bg').classList.remove('open');S.activeRoom=null;}
+function closeModal(){
+  const bg=document.getElementById('modal-bg');
+  const card=document.getElementById('mCard');
+  // Kill any running GSAP animation that might have set inline styles
+  if(window.gsap){ gsap.killTweensOf(card); }
+  // Reset inline styles so CSS transition takes over
+  card.style.transform='';
+  card.style.opacity='';
+  bg.classList.remove('open');
+  S.activeRoom=null;
+}
 function bgClick(e){if(e.target===document.getElementById('modal-bg')) closeModal();}
 
 function enterRoom(){
@@ -750,7 +773,7 @@ if('serviceWorker' in navigator)
 }
 
 /* ── CACHE BUST — clears old SW on first visit after deploy ── */
-const EXPECTED_CACHE = 'cathys-hood-v5.2';
+const EXPECTED_CACHE = 'cathys-hood-v5.3';
 (async () => {
   if (!('caches' in window)) return;
   const keys = await caches.keys();
