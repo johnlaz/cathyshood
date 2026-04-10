@@ -726,7 +726,37 @@ function timeGreet(){
 
 /* ── SERVICE WORKER ─────────────────────────────────────── */
 if('serviceWorker' in navigator)
-  navigator.serviceWorker.register('./sw.js').catch(()=>{});
+  if ('serviceWorker' in navigator) {
+  navigator.serviceWorker.register('./sw.js').then(reg => {
+    // Force check for updates every time the page loads
+    reg.update();
+    // When a new SW is waiting, activate it immediately
+    reg.addEventListener('updatefound', () => {
+      const newSW = reg.installing;
+      newSW.addEventListener('statechange', () => {
+        if (newSW.state === 'installed' && navigator.serviceWorker.controller) {
+          // New SW ready — reload to use it
+          window.location.reload();
+        }
+      });
+    });
+  }).catch(()=>{});
+}
+
+/* ── CACHE BUST — clears old SW on first visit after deploy ── */
+const EXPECTED_CACHE = 'cathys-hood-v5.0';
+(async () => {
+  if (!('caches' in window)) return;
+  const keys = await caches.keys();
+  const hasOld = keys.some(k => k !== EXPECTED_CACHE && k.startsWith('cathys-hood-'));
+  if (hasOld) {
+    // Old cache found — unregister all SWs and reload fresh
+    const regs = await navigator.serviceWorker.getRegistrations();
+    await Promise.all(regs.map(r => r.unregister()));
+    await Promise.all(keys.map(k => caches.delete(k)));
+    window.location.reload();
+  }
+})();
 
 /* ── BOOT ───────────────────────────────────────────────── */
 function toggleAudio(){
