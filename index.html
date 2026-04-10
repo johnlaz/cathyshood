@@ -6,7 +6,7 @@
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="theme-color" content="#1565c0">
-<title>Cathy's Neighborhood v2.9</title>
+<title>Cathy's Neighborhood v5.0</title>
 <link rel="manifest" href="manifest.json">
 
 <!-- PWA / iOS install icons -->
@@ -30,7 +30,7 @@
 <link href="https://fonts.googleapis.com/css2?family=Nunito:wght@400;700;800;900&family=Fredoka+One&display=swap" rel="stylesheet">
 <style>
 /* ─────────────────────────────────────────
-   CATHY'S NEIGHBORHOOD v2.9
+   CATHY'S NEIGHBORHOOD v3.1
    Image-map driven. Pan + pinch-zoom.
    v2.1 — Music Lab added, CN.BASE path fix
    v2.2 — Little Chef Kitchen live
@@ -40,7 +40,10 @@
    v2.6 — Room illustrations embedded, glass UI panels
    v2.7 — Full touch/click audit: zone double-fire, canvas timing, audio null-safety
    v2.8 — Navigation splash fix, driveway 3-step wash, distinct drum sounds, robot assembly, SVG nails, mower image
-   v2.9 — PWA icons, .nojekyll, 404.html, apple-touch-icon, all GitHub Pages install requirements, driveway 3-step wash, distinct drum sounds, robot assembly, SVG nails, mower image
+   v2.9 — PWA icons, .nojekyll, 404.html, apple-touch-icon, all GitHub Pages install requirements
+   v3.0 — GSAP animation system: spring physics, wobble reactions, elastic confetti, smooth transitions everywhere
+   v3.1 — Full audio engine (synth SFX + bg music per room), celebrate close fixed, kitchen chopping + sizzle pan
+   v5.0 — Pond rebuilt (GSAP ripples, hunger system, food arcs, animal wobbles), Mower fixed (SVG mower + pointer events), Driveway tool order fixed, Salon spray fixed (synth SFX + bg music per room), celebrate close fixed, kitchen chopping + sizzle pan: spring physics, wobble reactions, elastic confetti, smooth transitions everywhere, .nojekyll, 404.html, apple-touch-icon, all GitHub Pages install requirements, driveway 3-step wash, distinct drum sounds, robot assembly, SVG nails, mower image
 ───────────────────────────────────────── */
 :root {
   --font-title:'Fredoka One',cursive;
@@ -184,7 +187,7 @@ body.edit-mode .zone-label{opacity:1!important;}
   <div class="sp-logo">🏘️</div>
   <div class="sp-title">Cathy's<br>Neighborhood!</div>
   <div class="sp-sub">A magical world just for you ✨</div>
-  <button class="sp-btn" onclick="startGame()">Let's Explore! 🌟</button>
+  <button class="sp-btn" id="splashBtn" onclick="startGame()">Let's Explore! 🌟</button>
 </div>
 
 <!-- WORLD -->
@@ -198,8 +201,10 @@ body.edit-mode .zone-label{opacity:1!important;}
 <!-- HUD -->
 <div id="hud">
   <div class="hud-bar">
-    <div class="hud-title">🌟 Cathy's Neighborhood <span style="font-size:.7em;opacity:.6">v2.9</span></div>
-    <div class="hud-right">
+    <div class="hud-title">🌟 Cathy's Neighborhood <span style="font-size:.7em;opacity:.6">v5.0</span></div>
+    <div id="coin-display" style="font-family:var(--font-title);font-size:.85rem;color:var(--gold);text-shadow:0 0 8px rgba(255,215,0,.4);padding:4px 10px;background:rgba(0,0,0,.2);border-radius:10px;border:1px solid rgba(255,215,0,.2)">🪙 0</div>
+      <div class="hud-right">
+      <button class="hud-btn" id="audioBtn" onclick="toggleAudio()" title="Toggle sound">🔊</button>
       <button class="hud-btn" onclick="centerView()">🗺️</button>
       <div class="hud-btn" id="home-btn"
         onmousedown="holdStart(event)" onmouseup="holdEnd()" onmouseleave="holdEnd()"
@@ -253,6 +258,12 @@ body.edit-mode .zone-label{opacity:1!important;}
   </div>
 </div>
 
+<script src="https://cdn.jsdelivr.net/npm/gsap@3.12.5/dist/gsap.min.js">
+  document.addEventListener('cn:coins', e => {
+    const el=document.getElementById('coin-display');
+    if(el) el.textContent='🪙 '+e.detail.coins;
+  });
+</script>
 <!-- CN Core Engine — for live toybox persistence -->
 <script src="shared/cn-core.js"></script>
 <script>
@@ -274,7 +285,7 @@ const ROOMS = [
       {icon:'🛋️',text:'Living Room',sub:'Relax, play and hang out!'},
       {icon:'🛏️',text:"Cathy's Bedroom",sub:'Your very own special room!'},
     ],
-    entranceLabel:"Go Home!", stub:true
+    entranceLabel:"Go Home!"
   },
   {
     // Music Lab label sits left of house, ground-floor left windows
@@ -420,6 +431,7 @@ function startGame(){
   setTimeout(()=>{
     document.getElementById('splash').style.display='none';
     showGreet(timeGreet());
+    CN.Audio.bgStart('map');
   },700);
 }
 
@@ -605,6 +617,7 @@ function openModal(room){
     +(room.stub?'<div class="coming-tag">🚧 Coming soon — building this room! 🚧</div>':'');
   document.getElementById('enterLbl').textContent=room.stub?'Peek Inside!':(room.entranceLabel||"Let's Go!");
   document.getElementById('modal-bg').classList.add('open');
+  if(window.gsap) CN.Anim.celebrateIn(document.getElementById('mCard'));
 }
 
 function closeModal(){document.getElementById('modal-bg').classList.remove('open');S.activeRoom=null;}
@@ -696,6 +709,7 @@ function showGreet(msg){
   const g=document.getElementById('greeting');
   clearTimeout(S.greetTimer);
   g.textContent=msg; g.classList.add('show');
+  if(window.gsap) gsap.fromTo(g,{y:-16,opacity:0},{y:0,opacity:1,duration:.4,ease:'back.out(2)'});
   S.greetTimer=setTimeout(()=>g.classList.remove('show'),3200);
 }
 function timeGreet(){
@@ -715,12 +729,19 @@ if('serviceWorker' in navigator)
   navigator.serviceWorker.register('./sw.js').catch(()=>{});
 
 /* ── BOOT ───────────────────────────────────────────────── */
+function toggleAudio(){
+  const muted=CN.Audio.toggle();
+  document.getElementById('audioBtn').textContent=muted?'🔇':'🔊';
+}
+CN.Audio.unlockOnGesture();
+
 document.addEventListener('DOMContentLoaded',()=>{
   initWorld();
   setupInput();
   applyXform();
   // Load live toybox from IndexedDB
   renderToyboxBar();
+  CN.updateCoinDisplay();
   // Skip splash if returning from a room
   if(sessionStorage.getItem('cn_visited')){
     const sp=document.getElementById('splash');
