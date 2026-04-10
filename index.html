@@ -6,7 +6,7 @@
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="theme-color" content="#1565c0">
-<title>Cathy's Neighborhood v5.1</title>
+<title>Cathy's Neighborhood v5.2</title>
 <link rel="manifest" href="manifest.json">
 
 <!-- PWA / iOS install icons -->
@@ -43,7 +43,7 @@
    v2.9 — PWA icons, .nojekyll, 404.html, apple-touch-icon, all GitHub Pages install requirements
    v3.0 — GSAP animation system: spring physics, wobble reactions, elastic confetti, smooth transitions everywhere
    v3.1 — Full audio engine (synth SFX + bg music per room), celebrate close fixed, kitchen chopping + sizzle pan
-   v5.1 — Pond rebuilt (GSAP ripples, hunger system, food arcs, animal wobbles), Mower fixed (SVG mower + pointer events), Driveway tool order fixed, Salon spray fixed (synth SFX + bg music per room), celebrate close fixed, kitchen chopping + sizzle pan: spring physics, wobble reactions, elastic confetti, smooth transitions everywhere, .nojekyll, 404.html, apple-touch-icon, all GitHub Pages install requirements, driveway 3-step wash, distinct drum sounds, robot assembly, SVG nails, mower image
+   v5.2 — Pond rebuilt (GSAP ripples, hunger system, food arcs, animal wobbles), Mower fixed (SVG mower + pointer events), Driveway tool order fixed, Salon spray fixed (synth SFX + bg music per room), celebrate close fixed, kitchen chopping + sizzle pan: spring physics, wobble reactions, elastic confetti, smooth transitions everywhere, .nojekyll, 404.html, apple-touch-icon, all GitHub Pages install requirements, driveway 3-step wash, distinct drum sounds, robot assembly, SVG nails, mower image
 ───────────────────────────────────────── */
 :root {
   --font-title:'Fredoka One',cursive;
@@ -202,16 +202,16 @@ body.edit-mode .zone-label{opacity:1!important;}
 <!-- HUD -->
 <div id="hud">
   <div class="hud-bar">
-    <div class="hud-title">🌟 Cathy's Neighborhood <span style="font-size:.7em;opacity:.6">v5.1</span></div>
+    <div class="hud-title">🌟 Cathy's Neighborhood <span style="font-size:.7em;opacity:.6">v5.2</span></div>
     <div id="coin-display" onclick="showCoinInfo()" title="Your coins — keep exploring to earn more!" style="font-family:var(--font-title);font-size:.85rem;color:var(--gold);text-shadow:0 0 8px rgba(255,215,0,.4);padding:4px 10px;background:rgba(0,0,0,.2);border-radius:10px;border:1px solid rgba(255,215,0,.2)">🪙 0</div>
       <div class="hud-right">
-      <button class="hud-btn" id="audioBtn" onclick="toggleAudio()" title="Toggle sound">🔊<span class="tip">Toggle Sound</span></button>
-      <button class="hud-btn" onclick="centerView()" title="Reset Map View" aria-label="Reset map view">🗺️<span class="tip">Reset Map View</span></button>
+      <button class="hud-btn" id="audioBtn" onclick="toggleAudio()" title="Toggle sound">🔊</button>
+      <button class="hud-btn" onclick="centerView()" title="Reset Map View" aria-label="Reset map view">🗺️</button>
       <div class="hud-btn" id="home-btn"
         onmousedown="holdStart(event)" onmouseup="holdEnd()" onmouseleave="holdEnd()"
         ontouchstart="holdStart(event)" ontouchend="holdEnd()"
         title="Hold for Parent Settings">
-        🏠<div class="hold-ring" id="holdRing"></div><span class="tip">Hold for Parent Settings</span>
+        🏠<div class="hold-ring" id="holdRing"></div>
       </div>
     </div>
   </div>
@@ -220,8 +220,8 @@ body.edit-mode .zone-label{opacity:1!important;}
 <div id="greeting"></div>
 
 <div id="zoom-wrap">
-  <button class="zoom-btn" onclick="doZoom(+.12)" title="Zoom In" aria-label="Zoom in">+<span class="tip">Zoom In</span></button>
-  <button class="zoom-btn" onclick="doZoom(-.12)" title="Zoom Out" aria-label="Zoom out">−<span class="tip">Zoom Out</span></button>
+  <button class="zoom-btn" onclick="doZoom(+.12)" title="Zoom In" aria-label="Zoom in">+</button>
+  <button class="zoom-btn" onclick="doZoom(-.12)" title="Zoom Out" aria-label="Zoom out">−</button>
 </div>
 
 <div id="minimap" onclick="centerView()" title="Tap to reset view" style="cursor:pointer"><div id="mm-vp"></div></div>
@@ -258,7 +258,7 @@ body.edit-mode .zone-label{opacity:1!important;}
     <button class="pg-btn" onclick="toggleEdit();closePG()" style="background:linear-gradient(135deg,#1565c0,#0d47a1)">✏️ Edit Zone Layout</button>
         <button class="pg-btn danger" onclick="resetGame()">🔄 Reset All Progress</button>
     <div style="font-family:var(--font-title);font-size:.6rem;color:rgba(255,255,255,.35);text-align:center;margin-top:4px">
-      v5.1 — cathyshood
+      v5.2 — cathyshood
     </div>
     <button class="pg-btn back" onclick="closePG()">← Back to Play</button>
   </div>
@@ -750,7 +750,7 @@ if('serviceWorker' in navigator)
 }
 
 /* ── CACHE BUST — clears old SW on first visit after deploy ── */
-const EXPECTED_CACHE = 'cathys-hood-v5.1';
+const EXPECTED_CACHE = 'cathys-hood-v5.2';
 (async () => {
   if (!('caches' in window)) return;
   const keys = await caches.keys();

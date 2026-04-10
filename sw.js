@@ -3,7 +3,7 @@
 // Strategy: Cache-First with Network Fallback
 // ============================================================
 
-const CACHE_NAME = 'cathys-hood-v5.1';
+const CACHE_NAME = 'cathys-hood-v5.2';
 const STATIC_ASSETS = [
   './',
   './index.html',
