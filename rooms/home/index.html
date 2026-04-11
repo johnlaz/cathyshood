@@ -89,14 +89,34 @@ body { background:none; overflow:hidden; }
 .launch-overlay.show { opacity:1; pointer-events:all; }
 .launch-card {
   background:linear-gradient(145deg,#1a0a33,#2d1060);
-  border-radius:24px; padding:28px 32px;
-  max-width:320px; width:90%;
+  border-radius:24px; padding:24px 28px;
+  max-width:340px; width:90%;
   text-align:center;
   border:2px solid rgba(255,200,80,.3);
   box-shadow:0 20px 60px rgba(0,0,0,.5);
-  display:flex; flex-direction:column; gap:14px; align-items:center;
+  flex-direction:column; gap:12px; align-items:center;
   animation:cardIn .35s cubic-bezier(.34,1.5,.64,1);
 }
+/* Game picker rows */
+.game-pick-btn {
+  display:flex; align-items:center; gap:12px;
+  background:rgba(255,255,255,.08);
+  border:1.5px solid rgba(255,255,255,.15);
+  border-radius:16px; padding:12px 16px;
+  cursor:pointer; touch-action:manipulation;
+  -webkit-tap-highlight-color:transparent;
+  transition:all .14s; width:100%; text-align:left;
+  box-shadow:0 3px 10px rgba(0,0,0,.25);
+}
+.game-pick-btn:hover, .game-pick-btn:active {
+  background:rgba(255,255,255,.16);
+  border-color:rgba(255,200,80,.5);
+  transform:scale(1.03);
+}
+.gpb-ico  { font-size:2rem; flex-shrink:0; }
+.gpb-info { display:flex; flex-direction:column; gap:2px; }
+.gpb-name { font-family:'Fredoka One',cursive; font-size:.88rem; color:#fff; }
+.gpb-desc { font-family:'Nunito',sans-serif; font-size:.65rem; color:rgba(255,255,255,.6); }
 @keyframes cardIn { from{transform:scale(.7) translateY(20px);opacity:0} to{transform:scale(1) translateY(0);opacity:1} }
 .launch-ico  { font-size:3.5rem; filter:drop-shadow(0 4px 12px rgba(255,200,80,.4)); }
 .launch-name { font-family:'Fredoka One',cursive; font-size:1.3rem; color:#fde68a; }
@@ -161,13 +181,7 @@ button,.hotspot,.launch-btn{touch-action:manipulation;-webkit-tap-highlight-colo
       <div class="hotspot-label">🎨 Art Studio</div>
     </div>
 
-    <!-- 2. Tetris Blocks — shelf above Pac-Man -->
-    <div class="hotspot" id="hs-blocks"
-         onclick="openSpot('blocks')"
-         style="width:clamp(55px,11vw,80px);height:clamp(55px,11vw,80px);">
-      <div class="hotspot-ring"></div>
-      <div class="hotspot-label">🧩 Block Game</div>
-    </div>
+    <!-- blocks hotspot removed — games now inside Arcade picker -->
 
     <!-- 3. Pac-Man Arcade — center cabinet -->
     <div class="hotspot" id="hs-arcade"
@@ -187,7 +201,8 @@ button,.hotspot,.launch-btn{touch-action:manipulation;-webkit-tap-highlight-colo
 
     <!-- ══ LAUNCH OVERLAY ══ -->
     <div class="launch-overlay" id="launchOverlay">
-      <div class="launch-card" id="launchCard">
+      <!-- Standard single-app card -->
+      <div class="launch-card" id="launchCard" style="display:flex">
         <div class="launch-ico"  id="launchIco">🎨</div>
         <div class="launch-name" id="launchName">Art Studio</div>
         <div class="launch-desc" id="launchDesc">Tap to open!</div>
@@ -195,6 +210,14 @@ button,.hotspot,.launch-btn{touch-action:manipulation;-webkit-tap-highlight-colo
           <button class="launch-btn btn-go"    id="launchGo"    onclick="doLaunch()">Let's Go! 🚀</button>
           <button class="launch-btn btn-close" onclick="closeOverlay()">← Back</button>
         </div>
+      </div>
+      <!-- Arcade game picker card -->
+      <div class="launch-card" id="arcadeCard" style="display:none">
+        <div class="launch-ico">🕹️</div>
+        <div class="launch-name">The Arcade</div>
+        <div class="launch-desc">Choose your game!</div>
+        <div id="arcadeGameList" style="display:flex;flex-direction:column;gap:8px;width:100%"></div>
+        <button class="launch-btn btn-close" onclick="closeOverlay()" style="margin-top:4px;align-self:center">← Back</button>
       </div>
     </div>
 
@@ -245,21 +268,13 @@ const SPOTS = {
     xPct:.23, yPct:.33, wPct:.11, hPct:.25,
     url: 'https://johnlaz.github.io/remix/',
   },
-  blocks: {
-    ico:'🧩', name:'Block Drop',
-    desc:'Stack the falling blocks — how high can you go?',
-    particles:['🧩','🟦','🟥','🟨','🟩'],
-    // Tetris blocks on shelf: ~49–59% x, ~18–40% y
-    xPct:.49, yPct:.18, wPct:.10, hPct:.22,
-    url: 'https://johnlaz.github.io/tetris/',
-  },
+
   arcade: {
-    ico:'🕹️', name:'Arcade',
-    desc:'Classic arcade action — Pac-Man style fun!',
+    ico:'🕹️', name:'The Arcade',
+    desc:'Play Pac-Man, Block Drop, Star Smasher and more!',
     particles:['🕹️','👾','⭐','🌟','💥'],
-    // Pac-Man cabinet: ~46–60% x, ~38–78% y
     xPct:.46, yPct:.38, wPct:.14, hPct:.40,
-    url: 'https://johnlaz.github.io/pacman/',
+    url:'https://johnlaz.github.io/arcade/',
   },
   storymagic: {
     ico:'✨', name:'Story Magic',
@@ -322,19 +337,58 @@ function openSpot(key) {
     spawnParticles(spot.particles, r.left + r.width/2, r.top + r.height/2, 10);
   }
 
-  // Show launch overlay
-  document.getElementById('launchIco').textContent  = spot.ico;
-  document.getElementById('launchName').textContent = spot.name;
-  document.getElementById('launchDesc').textContent = spot.desc + (spot.url ? '' : '\n\n🚧 Coming soon!');
-  document.getElementById('launchGo').style.display = spot.url ? 'block' : 'none';
-  document.getElementById('launchOverlay').classList.add('show');
+  const overlay = document.getElementById('launchOverlay');
+  const stdCard    = document.getElementById('launchCard');
+  const arcCard    = document.getElementById('arcadeCard');
+  overlay.classList.add('show');
 
-  if (window.gsap) gsap.from('#launchCard', {scale:.7, opacity:0, duration:.35, ease:'back.out(2)'});
-  CN.Room.greet(`${spot.ico} ${spot.name} — tap to launch!`);
+  if (spot.type === 'arcade') {
+    // Show arcade game picker
+    stdCard.style.display = 'none';
+    arcCard.style.display = 'flex';
+    // Build game list
+    const list = document.getElementById('arcadeGameList');
+    list.innerHTML = '';
+    spot.games.forEach(game => {
+      const btn = document.createElement('button');
+      btn.className = 'game-pick-btn';
+      btn.innerHTML = `
+        <span class="gpb-ico">${game.ico}</span>
+        <div class="gpb-info">
+          <div class="gpb-name">${game.name}</div>
+          <div class="gpb-desc">${game.desc}</div>
+        </div>`;
+      btn.addEventListener('click', () => {
+        CN.Audio.play('celebrate'); CN.FX.haptic('success');
+        setTimeout(() => { window.location.href = game.url; }, 280);
+      });
+      list.appendChild(btn);
+    });
+    if (window.gsap) {
+      gsap.from('#arcadeCard', {scale:.7, opacity:0, duration:.35, ease:'back.out(2)'});
+      gsap.from('.game-pick-btn', {x:-20, opacity:0, stagger:.08, duration:.3, ease:'back.out(1.5)', delay:.15});
+    }
+    CN.Room.greet('🕹️ Pick a game to play!');
+  } else {
+    // Standard single-app card
+    stdCard.style.display = 'flex';
+    arcCard.style.display = 'none';
+    document.getElementById('launchIco').textContent  = spot.ico;
+    document.getElementById('launchName').textContent = spot.name;
+    document.getElementById('launchDesc').textContent = spot.desc + (spot.url ? '' : '\n\n🚧 Coming soon!');
+    document.getElementById('launchGo').style.display = spot.url ? 'block' : 'none';
+    if (window.gsap) gsap.from('#launchCard', {scale:.7, opacity:0, duration:.35, ease:'back.out(2)'});
+    CN.Room.greet(`${spot.ico} ${spot.name} — tap to launch!`);
+  }
 }
 
 function closeOverlay() {
   document.getElementById('launchOverlay').classList.remove('show');
+  // Reset both cards for next open
+  setTimeout(() => {
+    document.getElementById('launchCard').style.display = 'flex';
+    document.getElementById('arcadeCard').style.display = 'none';
+  }, 300);
   _currentSpot = null;
   CN.Audio.play('tap');
 }
@@ -431,6 +485,31 @@ function findJohnny() {
 }
 
 document.addEventListener('DOMContentLoaded', () => CN.Audio.syncBtn());
+</script>
+
+<!-- Quick room nav -->
+<button id="room-nav-btn" onclick="toggleRoomNav()" title="Switch Room">🗺</button>
+<div id="room-nav-panel">
+  <div style="font-family:'Fredoka One',cursive;font-size:.58rem;color:rgba(255,255,255,.4);text-align:center;padding:4px 0 2px;letter-spacing:.06em;text-transform:uppercase">Jump To Room</div>
+  <button style="display:flex;align-items:center;gap:10px;padding:9px 12px;border-radius:13px;cursor:pointer;touch-action:manipulation;border:none;background:transparent;width:100%;text-align:left;color:#fff;font-family:'Fredoka One',cursive;font-size:.72rem;transition:background .12s" onmouseenter="this.style.background='rgba(255,255,255,.1)'" onmouseleave="this.style.background='transparent'" ontouchstart="this.style.background='rgba(255,255,255,.1)'" ontouchend="this.style.background='transparent'" onclick="roomNavTo('kitchen')"><span style="font-size:1.3rem;flex-shrink:0">🍳</span> Little Chef's Kitchen</button>
+  <button style="display:flex;align-items:center;gap:10px;padding:9px 12px;border-radius:13px;cursor:pointer;touch-action:manipulation;border:none;background:transparent;width:100%;text-align:left;color:#fff;font-family:'Fredoka One',cursive;font-size:.72rem;transition:background .12s" onmouseenter="this.style.background='rgba(255,255,255,.1)'" onmouseleave="this.style.background='transparent'" ontouchstart="this.style.background='rgba(255,255,255,.1)'" ontouchend="this.style.background='transparent'" onclick="roomNavTo('salon')"><span style="font-size:1.3rem;flex-shrink:0">💅</span> Royal Salon</button>
+  <button style="display:flex;align-items:center;gap:10px;padding:9px 12px;border-radius:13px;cursor:pointer;touch-action:manipulation;border:none;background:transparent;width:100%;text-align:left;color:#fff;font-family:'Fredoka One',cursive;font-size:.72rem;transition:background .12s" onmouseenter="this.style.background='rgba(255,255,255,.1)'" onmouseleave="this.style.background='transparent'" ontouchstart="this.style.background='rgba(255,255,255,.1)'" ontouchend="this.style.background='transparent'" onclick="roomNavTo('garage')"><span style="font-size:1.3rem;flex-shrink:0">🔧</span> Garage Workshop</button>
+  <button style="display:flex;align-items:center;gap:10px;padding:9px 12px;border-radius:13px;cursor:pointer;touch-action:manipulation;border:none;background:transparent;width:100%;text-align:left;color:#fff;font-family:'Fredoka One',cursive;font-size:.72rem;transition:background .12s" onmouseenter="this.style.background='rgba(255,255,255,.1)'" onmouseleave="this.style.background='transparent'" ontouchstart="this.style.background='rgba(255,255,255,.1)'" ontouchend="this.style.background='transparent'" onclick="roomNavTo('driveway')"><span style="font-size:1.3rem;flex-shrink:0">🚗</span> Driveway</button>
+  <button style="display:flex;align-items:center;gap:10px;padding:9px 12px;border-radius:13px;cursor:pointer;touch-action:manipulation;border:none;background:transparent;width:100%;text-align:left;color:#fff;font-family:'Fredoka One',cursive;font-size:.72rem;transition:background .12s" onmouseenter="this.style.background='rgba(255,255,255,.1)'" onmouseleave="this.style.background='transparent'" ontouchstart="this.style.background='rgba(255,255,255,.1)'" ontouchend="this.style.background='transparent'" onclick="roomNavTo('pond')"><span style="font-size:1.3rem;flex-shrink:0">🐘</span> The Pond</button>
+  <button style="display:flex;align-items:center;gap:10px;padding:9px 12px;border-radius:13px;cursor:pointer;touch-action:manipulation;border:none;background:transparent;width:100%;text-align:left;color:#fff;font-family:'Fredoka One',cursive;font-size:.72rem;transition:background .12s" onmouseenter="this.style.background='rgba(255,255,255,.1)'" onmouseleave="this.style.background='transparent'" ontouchstart="this.style.background='rgba(255,255,255,.1)'" ontouchend="this.style.background='transparent'" onclick="roomNavTo('mower')"><span style="font-size:1.3rem;flex-shrink:0">🚜</span> Lawn Mower</button>
+  <button style="display:flex;align-items:center;gap:10px;padding:9px 12px;border-radius:13px;cursor:pointer;touch-action:manipulation;border:none;background:transparent;width:100%;text-align:left;color:#fff;font-family:'Fredoka One',cursive;font-size:.72rem;transition:background .12s" onmouseenter="this.style.background='rgba(255,255,255,.1)'" onmouseleave="this.style.background='transparent'" ontouchstart="this.style.background='rgba(255,255,255,.1)'" ontouchend="this.style.background='transparent'" onclick="roomNavTo('garden')"><span style="font-size:1.3rem;flex-shrink:0">🥕</span> The Garden</button>
+  <button style="display:flex;align-items:center;gap:10px;padding:9px 12px;border-radius:13px;cursor:pointer;touch-action:manipulation;border:none;background:transparent;width:100%;text-align:left;color:#fff;font-family:'Fredoka One',cursive;font-size:.72rem;transition:background .12s" onmouseenter="this.style.background='rgba(255,255,255,.1)'" onmouseleave="this.style.background='transparent'" ontouchstart="this.style.background='rgba(255,255,255,.1)'" ontouchend="this.style.background='transparent'" onclick="roomNavTo('construction')"><span style="font-size:1.3rem;flex-shrink:0">🏗️</span> Alphabet Construction</button>
+  <button style="display:flex;align-items:center;gap:10px;padding:9px 12px;border-radius:13px;cursor:pointer;touch-action:manipulation;border:none;background:transparent;width:100%;text-align:left;color:#fff;font-family:'Fredoka One',cursive;font-size:.72rem;transition:background .12s" onmouseenter="this.style.background='rgba(255,255,255,.1)'" onmouseleave="this.style.background='transparent'" ontouchstart="this.style.background='rgba(255,255,255,.1)'" ontouchend="this.style.background='transparent'" onclick="roomNavTo('music')"><span style="font-size:1.3rem;flex-shrink:0">🎵</span> Music Lab</button>
+  <div style="height:1px;background:rgba(255,255,255,.08);margin:2px 6px"></div>
+  <button style="display:flex;align-items:center;gap:10px;padding:9px 12px;border-radius:13px;cursor:pointer;touch-action:manipulation;border:none;background:transparent;width:100%;color:#fff;font-family:'Fredoka One',cursive;font-size:.72px;justify-content:center;transition:background .12s" onmouseenter="this.style.background='rgba(255,255,255,.1)'" onmouseleave="this.style.background='transparent'" onclick="CN.Room.goHome()">
+    <span style="font-size:1.3rem">🗺️</span> Back to Map
+  </button>
+</div>
+<script>
+var _rnOpen=false;
+function toggleRoomNav(){_rnOpen=!_rnOpen;var p=document.getElementById('room-nav-panel');p.style.display=_rnOpen?'flex':'none';document.getElementById('room-nav-btn').style.background=_rnOpen?'linear-gradient(135deg,#dc2626,#991b1b)':'linear-gradient(135deg,#7c3aed,#4c1d95)';}
+function roomNavTo(id){_rnOpen=false;document.getElementById('room-nav-panel').style.display='none';window.location.href='../'+id+'/index.html';}
+document.addEventListener('pointerdown',function(e){if(_rnOpen&&!e.target.closest('#room-nav-btn')&&!e.target.closest('#room-nav-panel')){_rnOpen=false;document.getElementById('room-nav-panel').style.display='none';}});
 </script>
 </body>
 </html>
