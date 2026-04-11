@@ -6,7 +6,7 @@
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="theme-color" content="#1565c0">
-<title>Cathy's Neighborhood v5.3</title>
+<title>Cathy's Neighborhood v5.6</title>
 <link rel="manifest" href="manifest.json">
 
 <!-- PWA / iOS install icons -->
@@ -43,7 +43,7 @@
    v2.9 — PWA icons, .nojekyll, 404.html, apple-touch-icon, all GitHub Pages install requirements
    v3.0 — GSAP animation system: spring physics, wobble reactions, elastic confetti, smooth transitions everywhere
    v3.1 — Full audio engine (synth SFX + bg music per room), celebrate close fixed, kitchen chopping + sizzle pan
-   v5.3 — Pond rebuilt (GSAP ripples, hunger system, food arcs, animal wobbles), Mower fixed (SVG mower + pointer events), Driveway tool order fixed, Salon spray fixed (synth SFX + bg music per room), celebrate close fixed, kitchen chopping + sizzle pan: spring physics, wobble reactions, elastic confetti, smooth transitions everywhere, .nojekyll, 404.html, apple-touch-icon, all GitHub Pages install requirements, driveway 3-step wash, distinct drum sounds, robot assembly, SVG nails, mower image
+   v5.6 — Pond rebuilt (GSAP ripples, hunger system, food arcs, animal wobbles), Mower fixed (SVG mower + pointer events), Driveway tool order fixed, Salon spray fixed (synth SFX + bg music per room), celebrate close fixed, kitchen chopping + sizzle pan: spring physics, wobble reactions, elastic confetti, smooth transitions everywhere, .nojekyll, 404.html, apple-touch-icon, all GitHub Pages install requirements, driveway 3-step wash, distinct drum sounds, robot assembly, SVG nails, mower image
 ───────────────────────────────────────── */
 :root {
   --font-title:'Fredoka One',cursive;
@@ -178,6 +178,61 @@ body.edit-mode .zone-label{opacity:1!important;}
 .tb-slot:active{transform:scale(.88);}
 .tb-emoji{font-size:1.4rem;}
 .tb-num{position:absolute;bottom:2px;right:5px;font-size:.5rem;font-weight:900;color:rgba(255,255,255,.35);font-family:var(--font-body);}
+
+/* ── QUICK NAV MENU ── */
+#nav-btn {
+  position:fixed; bottom:calc(var(--toybox-h, 100px) + 14px); right:14px;
+  z-index:400; width:52px; height:52px; border-radius:50%;
+  background:linear-gradient(135deg,#7c3aed,#4c1d95);
+  border:2.5px solid rgba(255,255,255,.35);
+  box-shadow:0 4px 18px rgba(124,58,237,.5);
+  color:#fff; font-size:1.5rem; cursor:pointer;
+  display:flex; align-items:center; justify-content:center;
+  touch-action:manipulation; -webkit-tap-highlight-color:transparent;
+  transition:transform .15s, box-shadow .15s;
+}
+#nav-btn:active { transform:scale(.88); }
+#nav-btn.open { background:linear-gradient(135deg,#dc2626,#991b1b); }
+
+#nav-panel {
+  position:fixed; bottom:calc(var(--toybox-h, 100px) + 76px); right:10px;
+  z-index:399;
+  background:rgba(10,6,30,.94); backdrop-filter:blur(18px);
+  border-radius:20px; padding:8px 6px;
+  border:1.5px solid rgba(255,255,255,.14);
+  box-shadow:0 12px 40px rgba(0,0,0,.55);
+  display:none; flex-direction:column; gap:3px;
+  width:200px; max-height:65vh; overflow-y:auto;
+  scrollbar-width:none;
+}
+#nav-panel::-webkit-scrollbar { display:none; }
+#nav-panel.open { display:flex; }
+
+.nav-room {
+  display:flex; align-items:center; gap:10px;
+  padding:9px 12px; border-radius:13px;
+  cursor:pointer; touch-action:manipulation;
+  -webkit-tap-highlight-color:transparent;
+  transition:background .12s;
+  border:none; background:transparent; width:100%; text-align:left;
+}
+.nav-room:hover, .nav-room:active {
+  background:rgba(255,255,255,.1);
+}
+.nav-room-ico { font-size:1.3rem; flex-shrink:0; }
+.nav-room-name {
+  font-family:'Fredoka One',cursive;
+  font-size:.72rem; color:#fff; line-height:1.2;
+}
+.nav-divider {
+  height:1px; background:rgba(255,255,255,.08); margin:2px 6px;
+}
+.nav-header {
+  font-family:'Fredoka One',cursive; font-size:.58rem;
+  color:rgba(255,255,255,.4); text-align:center; padding:4px 0 2px;
+  letter-spacing:.06em; text-transform:uppercase;
+}
+
 </style>
 </head>
 <body>
@@ -202,7 +257,7 @@ body.edit-mode .zone-label{opacity:1!important;}
 <!-- HUD -->
 <div id="hud">
   <div class="hud-bar">
-    <div class="hud-title">🌟 Cathy's Neighborhood <span style="font-size:.7em;opacity:.6">v5.3</span></div>
+    <div class="hud-title">🌟 Cathy's Neighborhood <span style="font-size:.7em;opacity:.6">v5.6</span></div>
     <div id="coin-display" onclick="showCoinInfo()" title="Your coins — keep exploring to earn more!" style="font-family:var(--font-title);font-size:.85rem;color:var(--gold);text-shadow:0 0 8px rgba(255,215,0,.4);padding:4px 10px;background:rgba(0,0,0,.2);border-radius:10px;border:1px solid rgba(255,215,0,.2)">🪙 0</div>
       <div class="hud-right">
       <button class="hud-btn" id="audioBtn" onclick="toggleAudio()" title="Toggle sound">🔊</button>
@@ -258,7 +313,7 @@ body.edit-mode .zone-label{opacity:1!important;}
     <button class="pg-btn" onclick="toggleEdit();closePG()" style="background:linear-gradient(135deg,#1565c0,#0d47a1)">✏️ Edit Zone Layout</button>
         <button class="pg-btn danger" onclick="resetGame()">🔄 Reset All Progress</button>
     <div style="font-family:var(--font-title);font-size:.6rem;color:rgba(255,255,255,.35);text-align:center;margin-top:4px">
-      v5.3 — cathyshood
+      v5.6 — cathyshood
     </div>
     <button class="pg-btn back" onclick="closePG()">← Back to Play</button>
   </div>
@@ -773,7 +828,7 @@ if('serviceWorker' in navigator)
 }
 
 /* ── CACHE BUST — clears old SW on first visit after deploy ── */
-const EXPECTED_CACHE = 'cathys-hood-v5.3';
+const EXPECTED_CACHE = 'cathys-hood-v5.6';
 (async () => {
   if (!('caches' in window)) return;
   const keys = await caches.keys();
@@ -822,6 +877,63 @@ document.addEventListener('DOMContentLoaded',()=>{
 });
 
 window.addEventListener('resize',()=>{clamp();applyXform();});
+
+/* ── QUICK NAV ── */
+let _navOpen = false;
+function toggleNav() {
+  _navOpen = !_navOpen;
+  document.getElementById('nav-btn').classList.toggle('open', _navOpen);
+  document.getElementById('nav-panel').classList.toggle('open', _navOpen);
+  if (_navOpen && window.gsap) {
+    gsap.from('#nav-panel .nav-room', {
+      x:20, opacity:0, stagger:.04, duration:.25, ease:'back.out(1.5)'
+    });
+  }
+}
+function closeNav() {
+  _navOpen = false;
+  document.getElementById('nav-btn').classList.remove('open');
+  document.getElementById('nav-panel').classList.remove('open');
+}
+function navToRoom(roomId) {
+  closeNav();
+  if (!roomId) {
+    // Back to map — we're already on the map
+    centerView();
+    showGreet('Use the map to explore! 🗺️');
+    return;
+  }
+  window.location.href = 'rooms/' + roomId + '/index.html';
+}
+// Close nav when tapping outside
+document.addEventListener('pointerdown', e => {
+  if (_navOpen && !e.target.closest('#nav-btn') && !e.target.closest('#nav-panel')) {
+    closeNav();
+  }
+});
+
 </script>
+
+<!-- ── QUICK NAV BUTTON ── -->
+<button id="nav-btn" onclick="toggleNav()" title="Quick Room Select" aria-label="Quick room select">🗺</button>
+<div id="nav-panel" id="navPanel">
+  <div class="nav-header">Jump To Room</div>
+  <button class="nav-room" onclick="navToRoom('home')"><span class="nav-room-ico">🏡</span><span class="nav-room-name">Cathy's Home</span></button>
+  <button class="nav-room" onclick="navToRoom('kitchen')"><span class="nav-room-ico">🍳</span><span class="nav-room-name">Little Chef's Kitchen</span></button>
+  <button class="nav-room" onclick="navToRoom('salon')"><span class="nav-room-ico">💅</span><span class="nav-room-name">Royal Salon</span></button>
+  <button class="nav-room" onclick="navToRoom('garage')"><span class="nav-room-ico">🔧</span><span class="nav-room-name">Garage Workshop</span></button>
+  <button class="nav-room" onclick="navToRoom('driveway')"><span class="nav-room-ico">🚗</span><span class="nav-room-name">Driveway</span></button>
+  <button class="nav-room" onclick="navToRoom('pond')"><span class="nav-room-ico">🐘</span><span class="nav-room-name">The Pond</span></button>
+  <button class="nav-room" onclick="navToRoom('mower')"><span class="nav-room-ico">🚜</span><span class="nav-room-name">Lawn Mower</span></button>
+  <button class="nav-room" onclick="navToRoom('garden')"><span class="nav-room-ico">🥕</span><span class="nav-room-name">The Garden</span></button>
+  <button class="nav-room" onclick="navToRoom('construction')"><span class="nav-room-ico">🏗️</span><span class="nav-room-name">Alphabet Construction</span></button>
+  <button class="nav-room" onclick="navToRoom('music')"><span class="nav-room-ico">🎵</span><span class="nav-room-name">Music Lab</span></button>
+  <div class="nav-divider"></div>
+  <button class="nav-room" onclick="navToRoom(null)" style="justify-content:center">
+    <span class="nav-room-ico">🗺️</span>
+    <span class="nav-room-name">Back to Map</span>
+  </button>
+</div>
+
 </body>
 </html>

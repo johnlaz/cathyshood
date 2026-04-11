@@ -1,4 +1,4 @@
-# 🏘️ Cathy's Neighborhood — v5.3
+# 🏘️ Cathy's Neighborhood — v1.0
 
 ## What's In This Build
 - **Full PWA shell** with Service Worker (offline-first, cache-first)
