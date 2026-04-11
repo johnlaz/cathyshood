@@ -1,0 +1,1734 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<title>Little Chef's Kitchen — Cathy's Neighborhood</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Nunito:wght@400;700;800;900&family=Fredoka+One&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="../../shared/room-shell.css">
+<style>
+/* ── KITCHEN THEME ── */
+body {
+  background: none;
+  background-color: #1a1a2e;
+  position: relative;
+}
+#stage-overlay {
+  position: fixed; inset: 0; z-index: 0;
+  background: rgba(0,0,0,0.40);
+  pointer-events: none;
+}
+
+/* ── KITCHEN SCENE ── */
+#stage { display:flex; flex-direction:column; align-items:center; padding:10px 12px 6px; gap:10px; }
+
+/* Section label */
+.section-label {
+  font-family: var(--font-title);
+  font-size: clamp(.85rem,2.5vw,1.05rem);
+  color: rgba(255,255,255,.8);
+  text-align: center;
+  letter-spacing: .04em;
+  margin-bottom: -4px;
+}
+
+/* ── STATIONS GRID ── */
+.stations {
+  display: grid;
+  grid-template-columns: 1fr 1fr 1fr;
+  gap: 12px;
+  width: 100%;
+  max-width: 680px;
+}
+
+/* ── STATION CARD ── */
+.station {
+  background: rgba(0,0,0,.22);
+  border-radius: 22px;
+  border: 2px solid rgba(255,255,255,.18);
+  padding: 14px 10px 12px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  position: relative;
+  min-height: 180px;
+}
+.station-name {
+  font-family: var(--font-title);
+  font-size: clamp(.8rem,2.2vw,1rem);
+  color: #fff;
+  text-align: center;
+}
+
+/* ══════════════════════════════════════
+   OVEN STATION
+══════════════════════════════════════ */
+.oven-body {
+  width: 90px; height: 90px;
+  background: linear-gradient(145deg,#424242,#212121);
+  border-radius: 14px;
+  border: 3px solid #616161;
+  position: relative;
+  cursor: pointer;
+  display: flex; align-items: center; justify-content: center;
+  box-shadow: inset 0 2px 8px rgba(0,0,0,.5), 0 4px 12px rgba(0,0,0,.4);
+  transition: border-color .3s;
+  overflow: hidden;
+}
+.oven-body.heating { border-color: #ff6d00; }
+.oven-window {
+  width: 62px; height: 54px;
+  background: #1a1a1a;
+  border-radius: 8px;
+  border: 2px solid #555;
+  display: flex; align-items: flex-end; justify-content: center;
+  overflow: hidden;
+  position: relative;
+}
+.oven-glow {
+  position: absolute; inset: 0;
+  background: radial-gradient(ellipse at center, rgba(255,100,0,.0) 0%, transparent 70%);
+  transition: background 1s ease;
+  pointer-events: none;
+}
+.oven-body.heating .oven-glow {
+  background: radial-gradient(ellipse at center, rgba(255,140,0,.35) 0%, transparent 70%);
+}
+
+/* Cake inside oven */
+.cake-in-oven {
+  width: 50px;
+  height: 0;
+  background: linear-gradient(180deg,#ffe0b2,#ffcc80);
+  border-radius: 6px 6px 4px 4px;
+  transition: height 1.2s cubic-bezier(.34,1.2,.64,1);
+  position: relative;
+  overflow: hidden;
+}
+.cake-in-oven.baking { height: 34px; }
+.cake-in-oven.done   { height: 38px; background: linear-gradient(180deg,#c8860a,#a0522d); }
+.cake-frosting {
+  position: absolute; top: -6px; left: 0; right: 0;
+  height: 10px;
+  background: var(--frosting-color, #fff);
+  border-radius: 50% 50% 0 0;
+  opacity: 0;
+  transition: opacity .4s;
+}
+.cake-in-oven.done .cake-frosting { opacity: 1; }
+
+/* Oven knobs */
+.oven-knobs {
+  display: flex; gap: 6px; position: absolute; bottom: 6px; right: 8px;
+}
+.knob {
+  width: 12px; height: 12px;
+  border-radius: 50%;
+  background: #757575;
+  border: 1px solid #9e9e9e;
+  cursor: pointer;
+  transition: background .2s;
+}
+.knob.on { background: #ff6d00; box-shadow: 0 0 6px #ff6d00; }
+
+/* Heat shimmer lines */
+.heat-lines {
+  position: absolute; top: -20px; left: 50%;
+  transform: translateX(-50%);
+  display: flex; gap: 4px;
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity .5s;
+}
+.oven-body.heating .heat-lines { opacity: 1; }
+.heat-line {
+  width: 3px; height: 18px;
+  background: linear-gradient(180deg, transparent, rgba(255,200,0,.7));
+  border-radius: 2px;
+  animation: heatWiggle 1s ease-in-out infinite alternate;
+}
+.heat-line:nth-child(2) { animation-delay: .2s; height: 14px; }
+.heat-line:nth-child(3) { animation-delay: .4s; height: 20px; }
+@keyframes heatWiggle {
+  from { transform: scaleX(1) translateY(0); }
+  to   { transform: scaleX(1.4) translateY(-4px); }
+}
+
+/* Oven btn */
+.oven-btn {
+  font-family: var(--font-title);
+  font-size: .8rem; color: #fff;
+  background: rgba(255,109,0,.7);
+  border: none; border-radius: 12px;
+  padding: 7px 14px; cursor: pointer;
+  transition: all .2s; width: 100%;
+}
+.oven-btn:active { transform: scale(.95); }
+.oven-btn:disabled { opacity: .5; cursor: not-allowed; }
+
+/* ══════════════════════════════════════
+   BLENDER STATION
+══════════════════════════════════════ */
+.blender-body {
+  width: 70px;
+  position: relative;
+  cursor: pointer;
+  filter: drop-shadow(0 4px 8px rgba(0,0,0,.4));
+}
+/* Jug shape via clip-path */
+.blender-jug {
+  width: 70px; height: 80px;
+  background: rgba(255,255,255,.15);
+  border: 2px solid rgba(255,255,255,.35);
+  border-radius: 4px 4px 18px 18px;
+  position: relative;
+  overflow: hidden;
+  backdrop-filter: blur(4px);
+}
+.blender-liquid {
+  position: absolute;
+  bottom: 0; left: 0; right: 0;
+  height: 0;
+  background: #fff;
+  transition: height .6s ease, background .4s ease;
+  border-radius: 0 0 16px 16px;
+}
+.blender-jug.blending .blender-liquid {
+  animation: blendShake .08s ease-in-out infinite alternate;
+}
+@keyframes blendShake {
+  from { transform: translateX(-2px) skewX(-1deg); }
+  to   { transform: translateX(2px) skewX(1deg); }
+}
+.blender-base {
+  width: 76px; height: 18px;
+  background: linear-gradient(145deg,#424242,#212121);
+  border-radius: 6px;
+  margin: 0 auto;
+  border: 2px solid #616161;
+  display: flex; align-items: center; justify-content: center;
+}
+.blend-btn-indicator {
+  width: 20px; height: 8px;
+  background: #4caf50;
+  border-radius: 4px;
+  box-shadow: 0 0 8px #4caf50;
+  transition: background .3s;
+}
+.blender-base.running .blend-btn-indicator {
+  background: #ff6d00;
+  box-shadow: 0 0 8px #ff6d00;
+  animation: blinkBtn .4s ease-in-out infinite alternate;
+}
+@keyframes blinkBtn { to { opacity: .5; } }
+
+/* Ingredient pills */
+.ingredients {
+  display: flex; gap: 5px; flex-wrap: wrap; justify-content: center;
+}
+.ingredient {
+  font-size: 1.3rem;
+  background: rgba(255,255,255,.15);
+  border: 1.5px solid rgba(255,255,255,.3);
+  border-radius: 10px;
+  padding: 5px 7px;
+  cursor: pointer;
+  transition: transform .15s, background .2s;
+  user-select: none;
+  position: relative;
+}
+.ingredient:active { transform: scale(.88); }
+.ingredient.added  { opacity: .4; pointer-events: none; }
+.ingredient-count {
+  position: absolute; top: -4px; right: -4px;
+  background: var(--gold);
+  color: #1a1a1a;
+  font-size: .55rem; font-weight: 900;
+  width: 14px; height: 14px;
+  border-radius: 50%;
+  display: flex; align-items: center; justify-content: center;
+  font-family: var(--font-body);
+}
+
+/* ══════════════════════════════════════
+   COOKIE STATION
+══════════════════════════════════════ */
+.dough-ball {
+  width: 70px; height: 70px;
+  background: radial-gradient(circle at 38% 35%, #ffe0b2, #ffcc80);
+  border-radius: 50%;
+  cursor: pointer;
+  transition: transform .15s;
+  box-shadow: 0 4px 12px rgba(0,0,0,.3), inset 0 -3px 8px rgba(0,0,0,.15);
+  display: flex; align-items: center; justify-content: center;
+  font-size: 1.6rem;
+  border: 2px solid rgba(255,255,255,.2);
+}
+.dough-ball:active { transform: scale(.88) rotate(-8deg); }
+
+.cookie-tray {
+  width: 100%;
+  background: rgba(0,0,0,.2);
+  border-radius: 12px;
+  border: 2px dashed rgba(255,255,255,.25);
+  min-height: 50px;
+  display: flex; align-items: center;
+  justify-content: center; flex-wrap: wrap;
+  gap: 6px; padding: 6px;
+}
+.cookie-tray[data-drop] { border-color: rgba(255,255,255,.25); }
+.cookie-on-tray {
+  font-size: 1.6rem;
+  animation: bounceIn .35s cubic-bezier(.34,1.56,.64,1) both;
+  cursor: pointer;
+}
+.cookie-on-tray:active { transform: scale(.8); }
+
+/* ══════════════════════════════════════
+   FROSTING COLOR PICKER
+══════════════════════════════════════ */
+.frosting-row {
+  display: flex; gap: 6px; align-items: center; justify-content: center;
+}
+.frost-swatch {
+  width: 24px; height: 24px;
+  border-radius: 50%;
+  cursor: pointer;
+  border: 2.5px solid rgba(255,255,255,.4);
+  transition: transform .15s, border-color .2s;
+}
+.frost-swatch:active { transform: scale(.85); }
+.frost-swatch.selected { border-color: #fff; transform: scale(1.2); }
+
+/* ══════════════════════════════════════
+   RESULT ITEMS (baked goods ready to add)
+══════════════════════════════════════ */
+.results-row {
+  display: flex; gap: 10px; flex-wrap: wrap;
+  justify-content: center;
+  padding: 6px 0;
+  min-height: 60px;
+  width: 100%;
+  max-width: 680px;
+}
+.result-item {
+  display: flex; flex-direction: column;
+  align-items: center; gap: 4px;
+  background: rgba(255,255,255,.15);
+  border: 2px solid rgba(255,255,255,.3);
+  border-radius: 16px;
+  padding: 10px 14px;
+  cursor: pointer;
+  transition: transform .15s, background .2s;
+  animation: bounceIn .4s cubic-bezier(.34,1.56,.64,1) both;
+}
+.result-item:active { transform: scale(.93); }
+.result-item:hover  { background: rgba(255,255,255,.25); }
+.result-emoji { font-size: 2rem; }
+.result-label {
+  font-family: var(--font-title);
+  font-size: .72rem; color: #fff;
+  text-align: center;
+}
+.result-hint {
+  font-size: .62rem; color: rgba(255,255,255,.6);
+  font-weight: 700;
+}
+.add-badge {
+  background: var(--gold);
+  color: #1a1a1a;
+  font-family: var(--font-title);
+  font-size: .65rem;
+  padding: 2px 8px;
+  border-radius: 10px;
+  margin-top: 2px;
+}
+
+/* ══════════════════════════════════════
+   PROGRESS / STEP INDICATORS
+══════════════════════════════════════ */
+.step-dots {
+  display: flex; gap: 5px; justify-content: center;
+}
+.dot {
+  width: 8px; height: 8px;
+  border-radius: 50%;
+  background: rgba(255,255,255,.25);
+  transition: background .3s, transform .2s;
+}
+.dot.done { background: var(--gold); transform: scale(1.2); }
+
+/* ══════════════════════════════════════
+   KITCHEN-SPECIFIC ANIMATIONS
+══════════════════════════════════════ */
+@keyframes bounceIn {
+  0%   { transform: scale(0) rotate(-10deg); opacity: 0; }
+  60%  { transform: scale(1.15) rotate(3deg); opacity: 1; }
+  100% { transform: scale(1) rotate(0); }
+}
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+@keyframes steamPuff {
+  0%   { transform: translateY(0) scale(1); opacity: .7; }
+  100% { transform: translateY(-30px) scale(1.8); opacity: 0; }
+}
+
+/* Steam puffs */
+.steam {
+  position: absolute; top: -30px; left: 50%;
+  transform: translateX(-50%);
+  pointer-events: none;
+}
+.steam-puff {
+  display: inline-block;
+  width: 8px; height: 8px;
+  background: rgba(255,255,255,.6);
+  border-radius: 50%;
+  animation: steamPuff 1.2s ease-out infinite;
+}
+.steam-puff:nth-child(2) { animation-delay: .4s; margin-left: 8px; }
+.steam-puff:nth-child(3) { animation-delay: .8s; margin-left: -4px; }
+
+/* ── ILLUSTRATION BACKGROUND SUPPORT ── */
+
+.workbench, .print-lab, .wash-station, .charger-station,
+.mirror-frame, .mirror-wrap, .keyboard-wrap, .drum-grid,
+.loop-grid, .garden-bed, .controls, .dashboard, .lawn-wrap,
+.block-yard, .word-display, .food-shelf, .basket,
+.palette, .tools, .nail-row, .sticker-tray,
+.bpm-wrap, .tool-strip, .seed-row, .challenge-card,
+.stations, .station {
+  background: rgba(10, 12, 30, 0.72) !important;
+  backdrop-filter: blur(10px) !important;
+  -webkit-backdrop-filter: blur(10px) !important;
+  border-color: rgba(255,255,255,0.18) !important;
+}
+.station {
+  background: rgba(10, 12, 30, 0.75) !important;
+}
+.garden-bed {
+  background: linear-gradient(180deg, rgba(60,30,15,0.85), rgba(40,20,8,0.9)) !important;
+}
+.broken-item {
+  background: rgba(0,0,0,0.5) !important;
+}
+.car-wrap {
+  background: linear-gradient(180deg, rgba(100,160,220,0.6), rgba(200,230,255,0.4)) !important;
+}
+
+
+/* ── CHOPPING BOARD ── */
+.chop-ingred {
+  font-size:clamp(1.4rem,4vw,1.8rem);
+  background:rgba(255,255,255,.12);
+  border:1.5px solid rgba(255,255,255,.2);
+  border-radius:10px; padding:5px 8px;
+  cursor:pointer; transition:transform .15s;
+  touch-action:manipulation;
+}
+.chop-ingred:active { transform:scale(.8) rotate(-10deg); }
+.chop-ingred.chopped { opacity:.4; pointer-events:none; text-decoration:line-through; }
+.chopped-piece { font-size:1.1rem; animation:bounceIn .3s cubic-bezier(.34,1.56,.64,1); }
+
+/* ── SIZZLE PAN ── */
+.pan-wrap { position:relative; display:flex; flex-direction:column; align-items:center; cursor:pointer; }
+.pan-body  { position:relative; }
+.pan-surface {
+  width:clamp(80px,22vw,110px); height:clamp(40px,11vw,55px);
+  background:radial-gradient(ellipse,#555 0%,#333 70%,#222 100%);
+  border-radius:50%; border:3px solid #444;
+  position:relative; overflow:hidden;
+  display:flex; align-items:center; justify-content:center;
+  box-shadow:inset 0 4px 8px rgba(0,0,0,.5);
+  transition:background .4s;
+}
+.pan-surface.heating { background:radial-gradient(ellipse,#b87333 0%,#8b4513 60%,#4a2000 100%); }
+.pan-handle {
+  width:clamp(40px,12vw,60px); height:8px;
+  background:linear-gradient(90deg,#555,#333);
+  border-radius:4px; margin-top:4px;
+  box-shadow:0 2px 4px rgba(0,0,0,.4);
+}
+.pan-food { position:absolute; font-size:clamp(1rem,3vw,1.4rem); animation:sizzleMove 1.5s ease-in-out infinite alternate; }
+@keyframes sizzleMove { from{transform:translate(-3px,-2px)} to{transform:translate(3px,2px)} }
+.steam-wrap { position:absolute; top:-30px; left:50%; transform:translateX(-50%); pointer-events:none; }
+.pan-steam-puff {
+  display:inline-block; width:8px; height:8px;
+  background:rgba(255,255,255,.5); border-radius:50%;
+  animation:steamRise 1.5s ease-out infinite;
+  margin:0 3px;
+}
+.pan-steam-puff:nth-child(2) { animation-delay:.5s; }
+.pan-steam-puff:nth-child(3) { animation-delay:1s; }
+@keyframes steamRise { 0%{transform:translateY(0) scale(1);opacity:.7} 100%{transform:translateY(-25px) scale(2);opacity:0} }
+.pan-ingred-btn {
+  font-size:1.1rem; padding:5px 8px;
+  background:rgba(255,255,255,.12); border:1.5px solid rgba(255,255,255,.2);
+  border-radius:10px; cursor:pointer; touch-action:manipulation;
+  transition:all .15s;
+}
+.pan-ingred-btn.added { opacity:.35; pointer-events:none; }
+.pan-ingred-btn:active { transform:scale(.85); }
+
+
+/* ── FOG CANVAS ── */
+#fogCanvas { cursor:crosshair; }
+#fogCanvas.active { pointer-events:auto !important; }
+.prog-dot {
+  width:12px; height:12px; border-radius:50%;
+  background:rgba(255,255,255,.2); border:2px solid rgba(255,255,255,.3);
+  transition:background .3s, box-shadow .3s;
+}
+.prog-dot.done { background:#00e676; box-shadow:0 0 8px #00e676; }
+@keyframes pulse { from{opacity:.5} to{opacity:1} }
+
+/* ── HIDDEN JOHNNY ── */
+.johnny-hide {
+  position:fixed; z-index:50;
+  cursor:pointer; touch-action:manipulation;
+  -webkit-tap-highlight-color:transparent;
+  opacity:0; /* starts invisible — fades in after 8s */
+  transition:opacity 1s;
+  animation:none;
+}
+.johnny-peek {
+  font-size:clamp(1.2rem,4vw,1.8rem);
+  display:block;
+  animation:peekBob 2s ease-in-out infinite alternate;
+  filter:drop-shadow(0 2px 4px rgba(0,0,0,.4));
+}
+@keyframes peekBob { from{transform:translateY(0) rotate(-5deg)} to{transform:translateY(-6px) rotate(5deg)} }
+.johnny-pop {
+  position:fixed; z-index:800;
+  display:flex; flex-direction:column; align-items:center; gap:6px;
+  pointer-events:none;
+}
+.johnny-emoji { font-size:clamp(3rem,12vw,5rem); animation:johnnyJump .6s cubic-bezier(.34,1.5,.64,1) forwards; }
+@keyframes johnnyJump { from{transform:scale(0) rotate(-20deg)} to{transform:scale(1) rotate(0)} }
+.johnny-shout { font-family:var(--font-title); font-size:1rem; color:var(--gold); text-shadow:0 2px 8px rgba(0,0,0,.6); white-space:nowrap; }
+</style>
+</head>
+<body class="has-basket">
+<div id="bg-layer" style="background-image:url('bg.png')"></div>
+
+<!-- HUD -->
+<div id="room-hud">
+  <div class="hud-inner">
+    <button id="back-btn" onclick="CN.Room.goBack()" title="Go back">← Back</button>
+    <div class="hud-room-name">🍳 <span>Little Chef's Kitchen</span></div>
+    <div class="hud-right">
+      <button class="hud-btn" onclick="CN.Room.goHome()" title="Neighborhood map"
+        style="font-size:.85rem;width:auto;padding:0 10px;font-family:var(--font-title)">🏠 Map</button>
+      <button class="cn-btn cn-btn-sm"
+        style="background:rgba(0,0,0,.25);font-size:.75rem;padding:7px 12px"
+        onclick="resetKitchen()">🔄</button>
+    </div>
+  </div>
+</div>
+
+<div id="greeting"></div>
+
+<!-- STAGE -->
+<div id="stage">
+
+  <!-- STATIONS -->
+  <div class="stations">
+
+    <!-- ── OVEN ── -->
+    <div class="station" id="ovenStation">
+      <div class="station-name">🔥 Oven</div>
+
+      <div style="position:relative">
+        <div class="heat-lines">
+          <div class="heat-line"></div>
+          <div class="heat-line"></div>
+          <div class="heat-line"></div>
+        </div>
+        <div class="oven-body" id="ovenBody" onclick="ovenClick()">
+          <div class="oven-glow"></div>
+          <div class="oven-window">
+            <div class="cake-in-oven" id="cakeInOven">
+              <div class="cake-frosting" id="cakeFrosting"></div>
+            </div>
+          </div>
+          <div class="oven-knobs">
+            <div class="knob" id="knob1"></div>
+            <div class="knob" id="knob2"></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Frosting color picker -->
+      <div class="frosting-row" id="frostingRow">
+        <span style="font-size:.7rem;color:rgba(255,255,255,.6);font-family:var(--font-title)">Frosting:</span>
+        <div class="frost-swatch selected" style="background:#fff"      data-color="#fff"     onclick="pickFrost(this)"></div>
+        <div class="frost-swatch"          style="background:#ff80ab"   data-color="#ff80ab"  onclick="pickFrost(this)"></div>
+        <div class="frost-swatch"          style="background:#80d8ff"   data-color="#80d8ff"  onclick="pickFrost(this)"></div>
+        <div class="frost-swatch"          style="background:#ccff90"   data-color="#ccff90"  onclick="pickFrost(this)"></div>
+        <div class="frost-swatch"          style="background:#ffd740"   data-color="#ffd740"  onclick="pickFrost(this)"></div>
+      </div>
+
+      <div class="step-dots" id="ovenDots">
+        <div class="dot" id="od1"></div>
+        <div class="dot" id="od2"></div>
+        <div class="dot" id="od3"></div>
+      </div>
+
+      <button class="oven-btn" id="ovenBtn" onclick="ovenClick()">Tap to Bake!</button>
+    </div>
+
+    <!-- ── BLENDER ── -->
+    <div class="station" id="blenderStation">
+      <div class="station-name">🥤 Blender</div>
+
+      <div class="blender-body" onclick="blendClick()">
+        <div class="blender-jug" id="blenderJug">
+          <div class="blender-liquid" id="blenderLiquid"></div>
+        </div>
+        <div class="blender-base" id="blenderBase">
+          <div class="blend-btn-indicator"></div>
+        </div>
+      </div>
+
+      <!-- Ingredients -->
+      <div class="ingredients" id="ingredientsList"></div>
+
+      <div class="step-dots" id="blendDots">
+        <div class="dot" id="bd1"></div>
+        <div class="dot" id="bd2"></div>
+        <div class="dot" id="bd3"></div>
+      </div>
+    </div>
+
+    <!-- ── COOKIES ── -->
+    <div class="station" id="cookieStation">
+      <div class="station-name">🍪 Cookies</div>
+
+      <div class="dough-ball" id="doughBall" onclick="stampCookie()">🫓</div>
+
+      <div style="font-family:var(--font-title);font-size:.72rem;color:rgba(255,255,255,.65)">
+        Tap to stamp!
+      </div>
+
+      <div class="cookie-tray" id="cookieTray" data-drop="cookieTray">
+        <span style="font-family:var(--font-title);font-size:.7rem;color:rgba(255,255,255,.3)">
+          Tray empty
+        </span>
+      </div>
+
+      <div class="step-dots" id="cookieDots">
+        <div class="dot" id="cd1"></div>
+        <div class="dot" id="cd2"></div>
+        <div class="dot" id="cd3"></div>
+      </div>
+    </div>
+
+
+    <!-- ── CHOPPING BOARD ── -->
+    <div class="station" id="chopStation">
+      <div class="station-name">🔪 Chop!</div>
+      <div style="position:relative;display:flex;align-items:center;justify-content:center;gap:8px;flex-wrap:wrap" id="chopIngreds"></div>
+      <div style="background:rgba(0,0,0,.25);border-radius:10px;padding:8px;width:100%;min-height:48px;display:flex;align-items:center;justify-content:center;flex-wrap:wrap;gap:4px;border:1.5px dashed rgba(255,255,255,.2)" id="chopBoard">
+        <span style="font-family:var(--font-title);font-size:.65rem;color:rgba(255,255,255,.35)">Tap to chop!</span>
+      </div>
+      <div class="step-dots" id="chopDots">
+        <div class="dot" id="chd1"></div>
+        <div class="dot" id="chd2"></div>
+        <div class="dot" id="chd3"></div>
+      </div>
+      <button class="oven-btn" id="chopBtn" onclick="startChop()">Chop Veggies! 🔪</button>
+    </div>
+
+    <!-- ── SIZZLE PAN ── -->
+    <div class="station" id="panStation">
+      <div class="station-name">🍳 Sizzle Pan</div>
+      <div class="pan-wrap" id="panWrap" onclick="tapPan(event)">
+        <div class="pan-body">
+          <div class="pan-surface" id="panSurface"></div>
+          <div class="pan-handle"></div>
+        </div>
+        <div class="steam-wrap" id="panSteam"></div>
+      </div>
+      <div style="display:flex;gap:6px;justify-content:center;flex-wrap:wrap" id="panIngredsList"></div>
+      <div class="step-dots" id="panDots">
+        <div class="dot" id="pd1"></div>
+        <div class="dot" id="pd2"></div>
+        <div class="dot" id="pd3"></div>
+      </div>
+      <button class="oven-btn" id="panBtn" onclick="panAction()">Add Ingredient!</button>
+    </div>
+
+  </div><!-- /.stations -->
+
+  <!-- READY ITEMS ROW -->
+  <div class="section-label" id="resultsLabel" style="display:none">
+    ✨ Ready! Tap to add to your Toybox 🎒
+  </div>
+  <div class="results-row" id="resultsRow"></div>
+
+</div><!-- /#stage -->
+
+<!-- Toybox Bar -->
+<div id="toybox-bar-wrap">
+  <div class="bar-row"><div class="tb-label">🧸</div><div id="toybox-bar"></div><div id="coin-display">🪙 0</div></div>
+  <div class="bar-row"><div class="tb-label">🧺</div><div id="basket-bar"></div></div>
+</div>
+
+<!-- Celebration -->
+<div id="celebrate">
+  <div class="celebrate-card">
+    <div class="celebrate-emoji" id="celEmoji">🎉</div>
+    <div class="celebrate-title" id="celTitle">Yummy!</div>
+    <div class="celebrate-msg"   id="celMsg">Great cooking!</div>
+    <button class="cn-btn cn-btn-lg"
+      style="background:linear-gradient(135deg,#ff6eb4,#c026d3)"
+      onclick="hideCelebrate()">Keep Cooking! 🌟</button>
+  </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/gsap@3.12.5/dist/gsap.min.js">
+/* ══════════════════════════════════════
+   FOG CANVAS — Steam wipe mechanic
+   startCooking → fog builds → player wipes → reveal
+══════════════════════════════════════ */
+const FOG = {
+  ctx: null, canvas: null,
+  panItems: [],    // items added to pan
+  cooking: false,
+};
+
+const PAN_FOODS = [
+  { id:'egg',    emoji:'🥚', cooked:'🍳', name:'Egg'     },
+  { id:'meat',   emoji:'🥩', cooked:'🍖', name:'Steak'   },
+  { id:'shrimp', emoji:'🦐', cooked:'🍤', name:'Shrimp'  },
+  { id:'waffle', emoji:'🧇', cooked:'🥞', name:'Waffle'  },
+  { id:'corn',   emoji:'🌽', cooked:'🍿', name:'Popcorn' },
+  { id:'mush',   emoji:'🍄', cooked:'🍄', name:'Mushroom'},
+];
+
+function pvBuildIngreds(){
+  const shelf = document.getElementById('panIngredShelf');
+  if(!shelf) return;
+  shelf.innerHTML = PAN_FOODS.map(f=>`
+    <button class="cn-btn" style="font-size:1.5rem;padding:6px 10px;min-width:48px"
+      id="pvbtn_${f.id}" onclick="pvAddFood('${f.id}')">${f.emoji}</button>`).join('');
+}
+
+function pvAddFood(id){
+  if(FOG.cooking) return;
+  if(FOG.panItems.length >= 3){ CN.Room.greet('Pan is full! Time to cook! 🍳'); return; }
+  const food = PAN_FOODS.find(f=>f.id===id);
+  if(!food) return;
+  if(FOG.panItems.find(f=>f.id===id)){ CN.Room.greet('Already in the pan!'); return; }
+  FOG.panItems.push(food);
+  document.getElementById('pvbtn_'+id)?.classList.add('active');
+  // Show on pan surface
+  const surf = document.getElementById('pvSurface');
+  surf.innerHTML = FOG.panItems.map(f=>`<span style="font-size:2rem">${f.emoji}</span>`).join('');
+  CN.Audio.play('tap'); CN.FX.haptic('tap');
+  CN.Room.greet(`${food.emoji} in the pan! Add more or cook!`);
+}
+
+function pvStartCook(){
+  if(FOG.panItems.length===0){ CN.Room.greet('Add something to the pan first! 🥚'); return; }
+  if(FOG.cooking) return;
+  FOG.cooking = true;
+  CN.Audio.play('sizzle'); CN.FX.haptic('drill');
+  CN.Room.greet('Sizzling! 🔥 Wipe the steam away!');
+
+  // Flame on
+  const flame = document.getElementById('pvFlame');
+  const steam = document.getElementById('pvSteam');
+  if(flame) { flame.style.opacity='1'; if(window.gsap) gsap.to(flame,{opacity:.6+Math.random()*.4,duration:.3,yoyo:true,repeat:8}); }
+
+  // Step dots
+  document.getElementById('pvd1').classList.add('done');
+  setTimeout(()=>document.getElementById('pvd2')?.classList.add('done'), 1200);
+
+  // BUILD FOG after 1.5s
+  setTimeout(()=>{
+    buildFog();
+    document.getElementById('pvd3')?.classList.add('done');
+  }, 1500);
+
+  // Auto-reveal after 12s if player hasn't wiped
+  setTimeout(()=>{ if(FOG.cooking) pvReveal(); }, 12000);
+}
+
+function buildFog(){
+  const canvas  = document.getElementById('fogCanvas');
+  const wrap    = document.getElementById('panVisualWrap');
+  if(!canvas||!wrap) return;
+  FOG.canvas = canvas; 
+
+  const W = wrap.offsetWidth  || 260;
+  const H = wrap.offsetHeight || 186;
+  canvas.width  = W;
+  canvas.height = H;
+  FOG.ctx = canvas.getContext('2d');
+
+  // Fill with thick white steam fog
+  FOG.ctx.fillStyle = 'rgba(220,235,255,0.92)';
+  FOG.ctx.fillRect(0,0,W,H);
+
+  // Steam texture swirls
+  for(let i=0;i<30;i++){
+    const x=Math.random()*W, y=Math.random()*H, r=20+Math.random()*30;
+    const g=FOG.ctx.createRadialGradient(x,y,0,x,y,r);
+    g.addColorStop(0,'rgba(255,255,255,.5)');
+    g.addColorStop(1,'transparent');
+    FOG.ctx.fillStyle=g;
+    FOG.ctx.beginPath(); FOG.ctx.arc(x,y,r,0,Math.PI*2); FOG.ctx.fill();
+  }
+
+  // Show canvas + hint
+  if(window.gsap) gsap.to(canvas,{opacity:1,duration:.6});
+  else canvas.style.opacity='1';
+  canvas.classList.add('active');
+  const hint = document.getElementById('fogHint');
+  if(hint) hint.style.display='block';
+
+  // Steam puffs in steam div
+  const steamEl = document.getElementById('pvSteam');
+  if(steamEl){ steamEl.innerHTML='💨💨💨'; steamEl.style.opacity='1'; }
+
+  // WIPE event
+  canvas.addEventListener('pointermove', fogWipe);
+  canvas.addEventListener('pointerdown', fogWipe);
+}
+
+function fogWipe(e){
+  if(!FOG.ctx) return;
+  const rect = FOG.canvas.getBoundingClientRect();
+  const scaleX = FOG.canvas.width  / rect.width;
+  const scaleY = FOG.canvas.height / rect.height;
+  const x = (e.clientX - rect.left) * scaleX;
+  const y = (e.clientY - rect.top)  * scaleY;
+
+  FOG.ctx.globalCompositeOperation = 'destination-out';
+  FOG.ctx.beginPath();
+  FOG.ctx.arc(x, y, 38, 0, Math.PI*2);
+  FOG.ctx.fill();
+  FOG.ctx.globalCompositeOperation = 'source-over';
+
+  CN.FX.haptic('tap');
+
+  // Check how much fog is left
+  const data = FOG.ctx.getImageData(0,0,FOG.canvas.width,FOG.canvas.height).data;
+  let fogPixels=0;
+  for(let i=3;i<data.length;i+=16) if(data[i]>30) fogPixels++;
+  const fogPct = fogPixels / (data.length/64);
+
+  if(fogPct < 0.25 && FOG.cooking) pvReveal();
+}
+
+function pvReveal(){
+  FOG.cooking = false;
+  FOG.canvas?.removeEventListener('pointermove', fogWipe);
+  FOG.canvas?.removeEventListener('pointerdown', fogWipe);
+
+  // Fade out fog canvas
+  if(window.gsap && FOG.canvas) gsap.to(FOG.canvas,{opacity:0,duration:.5});
+  else if(FOG.canvas) FOG.canvas.style.opacity='0';
+
+  // Show cooked items with pop
+  const surf = document.getElementById('pvSurface');
+  surf.innerHTML = FOG.panItems.map(f=>`<span style="font-size:2.2rem">${f.cooked}</span>`).join('');
+  if(window.gsap) gsap.from('#pvSurface span',{scale:0,stagger:.12,duration:.4,ease:'back.out(3)'});
+
+  // Steam gone, flame off
+  const steamEl=document.getElementById('pvSteam');
+  const flame  =document.getElementById('pvFlame');
+  if(steamEl) steamEl.style.opacity='0';
+  if(flame)   flame.style.opacity='0';
+  if(document.getElementById('fogHint')) document.getElementById('fogHint').style.display='none';
+
+  CN.Audio.play('success'); CN.FX.haptic('success');
+  CN.Room.greet('🎉 Delicious! Tap the pan to collect!');
+
+  // Make pan tappable to collect
+  const wrap = document.getElementById('panVisualWrap');
+  if(wrap){
+    wrap.style.cursor='pointer';
+    wrap.onclick = pvCollect;
+  }
+}
+
+function pvCollect(){
+  if(FOG.panItems.length===0) return;
+  FOG.panItems.forEach(item=>{
+    addReadyItem({type:'cooked_'+item.id, emoji:item.cooked, name:'Cooked '+item.name, data:{raw:item.emoji}});
+  });
+  // Reset
+  FOG.panItems=[];
+  document.getElementById('pvSurface').innerHTML='';
+  document.getElementById('pvSteam').innerHTML='';
+  ['pvd1','pvd2','pvd3'].forEach(id=>document.getElementById(id)?.classList.remove('done'));
+  if(FOG.ctx){ FOG.ctx.clearRect(0,0,FOG.canvas.width,FOG.canvas.height); FOG.canvas.style.opacity='0'; }
+  if(FOG.canvas) FOG.canvas.classList.remove('active');
+  document.querySelectorAll('[id^="pvbtn_"]').forEach(b=>b.classList.remove('active'));
+  const wrap=document.getElementById('panVisualWrap');
+  if(wrap){ wrap.style.cursor=''; wrap.onclick=null; }
+  CN.FX.haptic('success'); CN.Audio.play('collect');
+  renderToyboxBar();
+  CN.Room.greet('Yum! Food added to your basket! 🧺');
+}
+
+// Wire up when pan panel opens
+const _origOpenPanel = typeof openPanel==='function' ? openPanel : null;
+
+</script>
+<script src="../../shared/cn-core.js"></script>
+<script>
+'use strict';
+const ROOM_ID = 'kitchen';
+
+/* ── KITCHEN STATE ── */
+const K = {
+  // Oven
+  ovenState:    'idle',   // idle | heating | done
+  frostColor:   '#fff',
+  ovenTimer:    null,
+  ovenProgress: 0,
+
+  // Blender
+  blendIngredients: [],
+  blendState:   'idle',   // idle | filling | blending | done
+  blendColor:   null,
+  blendTimer:   null,
+
+  // Cookies
+  cookieCount:  0,
+  maxCookies:   3,
+
+  // Ready items
+  readyItems:   [],
+};
+
+/* ── INGREDIENT DEFINITIONS ── */
+const INGREDIENTS = [
+  { id:'strawberry', emoji:'🍓', color:'#e91e63', label:'Berry'   },
+  { id:'banana',     emoji:'🍌', color:'#fdd835', label:'Banana'  },
+  { id:'blueberry',  emoji:'🫐', color:'#3f51b5', label:'Blue'    },
+  { id:'mango',      emoji:'🥭', color:'#ff9800', label:'Mango'   },
+  { id:'grape',      emoji:'🍇', color:'#9c27b0', label:'Grape'   },
+];
+
+/* ── INIT ── */
+// Audio setup
+function toggleAudio(){
+  const muted = CN.Audio.toggle();
+  document.getElementById('audioBtn').textContent = muted ? '🔇' : '🔊';
+  if(!muted) { CN.Audio.bgStart('kitchen'); initHotspots(); }
+  else CN.Audio.bgStop();
+}
+CN.Audio.unlockOnGesture();
+// Restore mute icon
+try{ if(localStorage.getItem('cn_muted')==='1') document.getElementById('audioBtn').textContent='🔇'; }catch(e){}
+
+CN.Room.init(ROOM_ID, async (saved) => {
+  if (saved) restoreState(saved);
+  buildIngredients();
+  renderOven();
+  renderBlender();
+  renderCookies();
+  buildChopIngreds();
+  buildPanIngreds();
+  
+  // GSAP button press feedback on all interactive elements
+  document.querySelectorAll('.cn-btn,.pad,.tool-card,.car-btn,.seed,.garden-tool,.fix-tool,.tool-btn,.loop-btn,.voice-btn,.block,.key').forEach(el => {
+    el.addEventListener('pointerdown', () => CN.Anim && CN.Anim.btnPress(el));
+  });
+  CN.Room.greet("Welcome to the kitchen, Chef! 👩‍🍳");
+});
+
+function restoreState(saved) {
+  if (saved.cookieCount)    K.cookieCount    = saved.cookieCount;
+  if (saved.frostColor)     K.frostColor     = saved.frostColor;
+  if (saved.readyItems)     K.readyItems     = saved.readyItems;
+}
+
+/* ════════════════════════════════════════
+   OVEN
+════════════════════════════════════════ */
+function ovenClick() {
+  if (K.ovenState === 'idle') startBaking();
+  else if (K.ovenState === 'done') collectCake();
+}
+
+function startBaking() {
+  K.ovenState = 'heating';
+  K.ovenProgress = 0;
+  renderOven();
+  CN.Room.greet("Baking... don't open the oven! 🔥");
+  CN.Audio.play('sizzle');
+  CN.FX.haptic('tap');
+
+  // Animate cake rising over 4 seconds
+  const cake = document.getElementById('cakeInOven');
+  const body  = document.getElementById('ovenBody');
+  const k1    = document.getElementById('knob1');
+  const k2    = document.getElementById('knob2');
+  body.classList.add('heating');
+  k1.classList.add('on'); k2.classList.add('on');
+  setTimeout(() => {
+    cake.classList.add('baking');
+    if(window.gsap) gsap.fromTo(cake, {scaleY:0,transformOrigin:'bottom'},{scaleY:1,duration:1.4,ease:'elastic.out(1,0.5)'});
+  }, 100);
+
+  // Progress dots
+  document.getElementById('od1').classList.add('done');
+  setTimeout(() => document.getElementById('od2').classList.add('done'), 1500);
+  setTimeout(() => {
+    document.getElementById('od3').classList.add('done');
+    finishBaking();
+  }, 3500);
+}
+
+function finishBaking() {
+  K.ovenState = 'done';
+  const cake  = document.getElementById('cakeInOven');
+  const frost = document.getElementById('cakeFrosting');
+  cake.classList.remove('baking');
+  cake.classList.add('done');
+  frost.style.background = K.frostColor;
+
+  CN.Audio.play('ovenDing');
+  CN.Room.greet("Ding! The cake is ready! Tap to take it out! 🎂");
+  CN.FX.haptic('success');
+
+  // Steam effect
+  const body = document.getElementById('ovenBody');
+  const steam = document.createElement('div');
+  steam.className = 'steam';
+  steam.innerHTML = '<div class="steam-puff"></div><div class="steam-puff"></div><div class="steam-puff"></div>';
+  body.parentNode.insertBefore(steam, body);
+  setTimeout(() => steam.remove(), 4000);
+
+  renderOven();
+}
+
+function collectCake() {
+  // Add to ready items
+  addReadyItem({
+    type:  'cake',
+    emoji: '🎂',
+    name:  'Birthday Cake',
+    data:  { frostColor: K.frostColor },
+  });
+
+  // Reset oven
+  K.ovenState = 'idle';
+  const cake = document.getElementById('cakeInOven');
+  const body = document.getElementById('ovenBody');
+  const k1   = document.getElementById('knob1');
+  const k2   = document.getElementById('knob2');
+  cake.classList.remove('done','baking');
+  body.classList.remove('heating');
+  k1.classList.remove('on'); k2.classList.remove('on');
+  ['od1','od2','od3'].forEach(id => document.getElementById(id).classList.remove('done'));
+  renderOven();
+
+  CN.FX.haptic('success');
+  CN.Room.greet("Cake added to your toybox! 🎂🎒");
+}
+
+function pickFrost(el) {
+  document.querySelectorAll('.frost-swatch').forEach(s => s.classList.remove('selected'));
+  el.classList.add('selected');
+  K.frostColor = el.dataset.color;
+  document.getElementById('cakeFrosting').style.background = K.frostColor;
+  saveKitchen();
+}
+
+function renderOven() {
+  const btn = document.getElementById('ovenBtn');
+  if (K.ovenState === 'idle')    { btn.textContent = 'Tap to Bake! 🔥'; btn.disabled = false; }
+  if (K.ovenState === 'heating') { btn.textContent = 'Baking... 🫁';    btn.disabled = true;  }
+  if (K.ovenState === 'done')    { btn.textContent = 'Take it out! 🎂'; btn.disabled = false; }
+}
+
+/* ════════════════════════════════════════
+   BLENDER
+════════════════════════════════════════ */
+function buildIngredients() {
+  const list = document.getElementById('ingredientsList');
+  list.innerHTML = INGREDIENTS.map(ing => `
+    <div class="ingredient" id="ing_${ing.id}" onclick="addIngredient('${ing.id}')"
+         title="${ing.label}">
+      ${ing.emoji}
+    </div>
+  `).join('');
+}
+
+function addIngredient(id) {
+  if (K.blendState === 'blending' || K.blendState === 'done') return;
+  if (K.blendIngredients.length >= 4) {
+    CN.Room.greet("That's enough! Tap the blender to blend! 🥤");
+    return;
+  }
+
+  const ing = INGREDIENTS.find(i => i.id === id);
+  K.blendIngredients.push(ing);
+
+  // Update liquid height and color mix
+  const pct = (K.blendIngredients.length / 4) * 65;
+  const color = mixColors(K.blendIngredients.map(i => i.color));
+  document.getElementById('blenderLiquid').style.height = pct + '%';
+  document.getElementById('blenderLiquid').style.background = color;
+  K.blendColor = color;
+
+  // Mark ingredient as added
+  document.getElementById('ing_'+id).classList.add('added');
+
+  // Dots
+  const dots = ['bd1','bd2','bd3'];
+  const idx = Math.min(K.blendIngredients.length - 1, 2);
+  document.getElementById(dots[idx]).classList.add('done');
+
+  K.blendState = 'filling';
+  CN.Audio.play('bubbles');
+  CN.FX.haptic('tap');
+  CN.Room.greet(`Added ${ing.emoji}! ${4 - K.blendIngredients.length} more slots!`);
+  saveKitchen();
+}
+
+function blendClick() {
+  if (K.blendIngredients.length === 0) {
+    CN.Room.greet("Add some fruit first! 🍓🍌🫐");
+    return;
+  }
+  if (K.blendState === 'blending') return;
+  if (K.blendState === 'done') {
+    collectSmoothie(); return;
+  }
+
+  K.blendState = 'blending';
+  const jug  = document.getElementById('blenderJug');
+  const base = document.getElementById('blenderBase');
+  const liq  = document.getElementById('blenderLiquid');
+
+  jug.classList.add('blending');
+  base.classList.add('running');
+  liq.style.height = '80%';
+  CN.FX.haptic('drill');
+  CN.Room.greet("Blending! 🌀 Hold on!");
+
+  setTimeout(() => {
+    jug.classList.remove('blending');
+    base.classList.remove('running');
+    K.blendState = 'done';
+    CN.Room.greet("Smoothie is ready! Tap to pour! 🥤✨");
+    CN.FX.haptic('success');
+  }, 2200);
+}
+
+function collectSmoothie() {
+  addReadyItem({
+    type:  'smoothie',
+    emoji: '🥤',
+    name:  'Fruit Smoothie',
+    data:  { color: K.blendColor, ingredients: K.blendIngredients.map(i => i.emoji) },
+  });
+
+  // Reset blender
+  K.blendIngredients = [];
+  K.blendState = 'idle';
+  K.blendColor = null;
+  document.getElementById('blenderLiquid').style.height = '0';
+  document.getElementById('blenderLiquid').style.background = '#fff';
+  document.querySelectorAll('.ingredient').forEach(el => el.classList.remove('added'));
+  ['bd1','bd2','bd3'].forEach(id => document.getElementById(id).classList.remove('done'));
+
+  CN.FX.haptic('success');
+  CN.Room.greet("Smoothie added to your toybox! 🥤🎒");
+  saveKitchen();
+}
+
+/* Color mixing — blend hex colors */
+function mixColors(hexArr) {
+  if (!hexArr.length) return '#fff';
+  let r=0, g=0, b=0;
+  hexArr.forEach(h => {
+    const c = hexToRgb(h);
+    r += c.r; g += c.g; b += c.b;
+  });
+  const n = hexArr.length;
+  return rgbToHex(Math.round(r/n), Math.round(g/n), Math.round(b/n));
+}
+function hexToRgb(hex) {
+  const r = parseInt(hex.slice(1,3),16);
+  const g = parseInt(hex.slice(3,5),16);
+  const b = parseInt(hex.slice(5,7),16);
+  return {r,g,b};
+}
+function rgbToHex(r,g,b) {
+  return '#'+[r,g,b].map(v=>v.toString(16).padStart(2,'0')).join('');
+}
+
+/* ════════════════════════════════════════
+   COOKIES
+════════════════════════════════════════ */
+function stampCookie() {
+  if (K.cookieCount >= K.maxCookies) {
+    CN.Room.greet("Tray is full! Add cookies to your toybox first! 🍪");
+    return;
+  }
+
+  // Animate dough ball
+  const ball = document.getElementById('doughBall');
+  if(window.gsap){ gsap.timeline().to(ball,{scale:.75,duration:.12,ease:'power2.in'}).to(ball,{scale:1.15,duration:.2}).to(ball,{scale:1,duration:.25,ease:'back.out(2)'}); }
+  ball.classList.add('anim-pop');
+  setTimeout(() => ball.classList.remove('anim-pop'), 350);
+
+  K.cookieCount++;
+
+  // Add cookie to tray
+  const tray = document.getElementById('cookieTray');
+  if (K.cookieCount === 1) tray.innerHTML = ''; // clear placeholder text
+
+  const cookie = document.createElement('div');
+  cookie.className = 'cookie-on-tray';
+  cookie.textContent = '🍪';
+  cookie.title = 'Tap to add to toybox';
+  cookie.onclick = () => collectOneCookie(cookie);
+  tray.appendChild(cookie);
+  if(window.gsap) gsap.fromTo(cookie,{scale:0,rotation:-30},{scale:1,rotation:0,duration:.45,ease:'back.out(2.5)'});
+
+  // Dots
+  const dots = ['cd1','cd2','cd3'];
+  document.getElementById(dots[Math.min(K.cookieCount-1,2)]).classList.add('done');
+
+  CN.Audio.play('chop');
+  CN.FX.haptic('tap');
+  CN.Room.greet(K.cookieCount >= K.maxCookies
+    ? "Tray full! Tap cookies to collect! 🍪🍪🍪"
+    : `Cookie ${K.cookieCount} stamped! ${K.maxCookies - K.cookieCount} more slots!`
+  );
+  saveKitchen();
+}
+
+function collectOneCookie(cookieEl) {
+  cookieEl.remove();
+  K.cookieCount--;
+
+  if (K.cookieCount === 0) {
+    document.getElementById('cookieTray').innerHTML =
+      '<span style="font-family:var(--font-title);font-size:.7rem;color:rgba(255,255,255,.3)">Tray empty</span>';
+    ['cd1','cd2','cd3'].forEach(id => document.getElementById(id).classList.remove('done'));
+  }
+
+  addReadyItem({ type:'cookie', emoji:'🍪', name:'Chocolate Cookie', data:{} });
+  CN.FX.haptic('tap');
+  CN.Room.greet("Cookie added to toybox! 🍪🎒");
+  saveKitchen();
+}
+
+function renderCookies() {
+  // restore rendered state from saved data (cookieCount handled in restoreState)
+}
+
+function renderBlender() {
+  // Initial state render
+}
+
+/* ════════════════════════════════════════
+   READY ITEMS — add to toybox
+════════════════════════════════════════ */
+function addReadyItem(item) {
+  K.readyItems.push(item);
+
+  const row   = document.getElementById('resultsRow');
+  const label = document.getElementById('resultsLabel');
+  label.style.display = 'block';
+
+  const card = document.createElement('div');
+  card.className = 'result-item';
+  card.dataset.idx = K.readyItems.length - 1;
+  card.innerHTML = `
+    <div class="result-emoji">${item.emoji}</div>
+    <div class="result-label">${item.name}</div>
+    <div class="result-hint">tap to pack</div>
+    <div class="add-badge">+ Toybox</div>
+  `;
+  card.onclick = () => sendToToybox(card, item);
+  row.appendChild(card);
+  if(window.gsap) gsap.fromTo(card,{scale:0,y:30,opacity:0},{scale:1,y:0,opacity:1,duration:.5,ease:'back.out(2)'});
+
+  // Star burst from center
+  (window.gsap ? CN.Anim.starBurst(window.innerWidth/2, window.innerHeight/2, 8) : CN.FX.stars(window.innerWidth/2, window.innerHeight/2, 8));
+  showCelebrate(item.emoji, 'Nice work, Chef!', `${item.name} is ready!`);
+  saveKitchen();
+}
+
+async function sendToToybox(card, item) {
+  const slot = await CN.smartAdd({
+    type:   item.type,
+    emoji:  item.emoji,
+    name:   item.name,
+    origin: ROOM_ID,
+    data:   item.data,
+  });
+
+  if (slot === -1) {
+    CN.Room.greet("Toybox is full! Go use some things first! 🧸");
+    return;
+  }
+
+  // Animate card flying to toybox slot
+  const slotEl = document.getElementById('s' + slot);
+  if (slotEl) {
+    const sr = slotEl.getBoundingClientRect();
+    const cr = card.getBoundingClientRect();
+    const clone = card.cloneNode(true);
+    clone.style.cssText = `
+      position:fixed; z-index:9999; pointer-events:none;
+      left:${cr.left}px; top:${cr.top}px;
+      width:${cr.width}px; height:${cr.height}px;
+      transition: all .45s cubic-bezier(.34,1.2,.64,1);
+    `;
+    document.body.appendChild(clone);
+    requestAnimationFrame(() => {
+      clone.style.left   = sr.left + 'px';
+      clone.style.top    = sr.top  + 'px';
+      clone.style.width  = sr.width + 'px';
+      clone.style.height = sr.height + 'px';
+      clone.style.opacity = '0';
+      clone.style.transform = 'scale(.3)';
+    });
+    setTimeout(() => clone.remove(), 500);
+  }
+
+  card.remove();
+  K.readyItems = K.readyItems.filter(i => i !== item);
+  if (K.readyItems.length === 0) {
+    document.getElementById('resultsLabel').style.display = 'none';
+  }
+
+  await CN.renderBothBars();
+  CN.Audio.play('collect');
+  CN.FX.haptic('success');
+  CN.Room.greet(`${item.emoji} packed in slot ${slot+1}! 🎒`);
+  saveKitchen();
+}
+
+/* ════════════════════════════════════════
+   CELEBRATION
+════════════════════════════════════════ */
+function showCelebrate(emoji, title, msg) {
+  document.getElementById('celEmoji').textContent = emoji;
+  document.getElementById('celTitle').textContent = title;
+  document.getElementById('celMsg').textContent   = msg;
+  CN.Audio.play('celebrate');
+  CN.addCoins(10).then(()=>CN.updateCoinDisplay());
+  document.getElementById('celebrate').classList.add('show');
+  if(window.gsap) CN.Anim.celebrateIn(document.querySelector('.celebrate-card'));
+  (window.gsap ? CN.Anim.confettiBurst(window.innerWidth/2,window.innerHeight*.3,28) : CN.FX.confetti(28));
+  setTimeout(hideCelebrate, 4200);
+}
+function hideCelebrate() {
+  const overlay = document.getElementById('celebrate');
+  const card    = document.querySelector('.celebrate-card');
+  if(window.gsap && card) {
+    CN.Anim.celebrateOut(card, overlay);
+  } else {
+    overlay.classList.remove('show');
+  }
+}
+
+/* ════════════════════════════════════════
+   RESET + SAVE
+════════════════════════════════════════ */
+function resetKitchen() {
+  K.ovenState = 'idle'; K.blendIngredients = []; K.blendState = 'idle';
+  K.cookieCount = 0; K.readyItems = []; K.frostColor = '#fff';
+
+  document.getElementById('resultsRow').innerHTML   = '';
+  document.getElementById('resultsLabel').style.display = 'none';
+  document.getElementById('cookieTray').innerHTML   =
+    '<span style="font-family:var(--font-title);font-size:.7rem;color:rgba(255,255,255,.3)">Tray empty</span>';
+  document.getElementById('cakeInOven').className = 'cake-in-oven';
+  document.getElementById('ovenBody').classList.remove('heating');
+  document.getElementById('blenderLiquid').style.height = '0';
+  document.querySelectorAll('.ingredient').forEach(el => el.classList.remove('added'));
+  document.querySelectorAll('.dot').forEach(d => d.classList.remove('done'));
+  document.querySelectorAll('.knob').forEach(k => k.classList.remove('on'));
+  renderOven();
+  CN.Room.greet("Kitchen reset! Let's start fresh! 👩‍🍳");
+  saveKitchen();
+}
+
+async function saveKitchen() {
+  await CN.Room.save(ROOM_ID, {
+    cookieCount: K.cookieCount,
+    frostColor:  K.frostColor,
+  });
+}
+
+/* ═══════════════════════════════════════
+   CHOPPING BOARD
+═══════════════════════════════════════ */
+const CHOP_VEGGIES = [
+  {emoji:'🥕',name:'Carrot',result:'🥕✂'},
+  {emoji:'🧅',name:'Onion', result:'🧅✂'},
+  {emoji:'🥦',name:'Broccoli',result:'🥦✂'},
+  {emoji:'🍅',name:'Tomato',result:'🍅✂'},
+  {emoji:'🌽',name:'Corn',  result:'🌽✂'},
+];
+let CK = { chopped:[], chopIdx:0 };
+
+function buildChopIngreds(){
+  const wrap = document.getElementById('chopIngreds');
+  wrap.innerHTML = '';
+  CHOP_VEGGIES.slice(0,4).forEach((v,i)=>{
+    const el=document.createElement('div');
+    el.className='chop-ingred';
+    el.textContent=v.emoji;
+    el.title=v.name;
+    el.addEventListener('pointerdown',()=>chopVeg(el,v));
+    wrap.appendChild(el);
+  });
+}
+
+function chopVeg(el, veg){
+  if(el.classList.contains('chopped')) return;
+  el.classList.add('chopped');
+  CN.Audio.play('chop'); CN.FX.haptic('tap');
+  if(window.gsap) gsap.fromTo(el,{rotation:-15,scale:1.2},{rotation:0,scale:1,duration:.3,ease:'back.out(2)'});
+
+  const board = document.getElementById('chopBoard');
+  if(CK.chopped.length===0) board.innerHTML='';
+  CK.chopped.push(veg);
+
+  // Show chopped result on board
+  const piece=document.createElement('span');
+  piece.className='chopped-piece'; piece.textContent=veg.emoji+'🔪';
+  board.appendChild(piece);
+
+  // Update dots
+  const dots=['chd1','chd2','chd3'];
+  if(CK.chopped.length-1 < 3) document.getElementById(dots[CK.chopped.length-1]).classList.add('done');
+
+  CN.Room.greet(`${veg.name} chopped! ${4-CK.chopped.length} more!`);
+
+  if(CK.chopped.length>=3){
+    setTimeout(()=>{
+      addReadyItem({type:'salad',emoji:'🥗',name:'Veggie Mix',data:{veggies:CK.chopped.map(v=>v.emoji)}});
+      CK.chopped=[];
+      board.innerHTML='<span style="font-family:var(--font-title);font-size:.65rem;color:rgba(255,255,255,.35)">Tap to chop!</span>';
+      document.querySelectorAll('.chop-ingred').forEach(e=>e.classList.remove('chopped'));
+      ['chd1','chd2','chd3'].forEach(id=>document.getElementById(id).classList.remove('done'));
+    },600);
+  }
+}
+
+function startChop(){ buildChopIngreds(); CN.Room.greet('Tap the veggies to chop them! 🔪'); }
+
+/* ═══════════════════════════════════════
+   SIZZLE PAN
+═══════════════════════════════════════ */
+const PAN_ITEMS = [
+  {emoji:'🥚',name:'Egg',    cooked:'🍳'},
+  {emoji:'🥩',name:'Meat',   cooked:'🥩🔥'},
+  {emoji:'🧇',name:'Waffle', cooked:'🧇'},
+  {emoji:'🍤',name:'Shrimp', cooked:'🦐🔥'},
+];
+let PK = { items:[], cooking:false, cookTimer:null, heatOn:false };
+
+function buildPanIngreds(){
+  const wrap=document.getElementById('panIngredsList');
+  wrap.innerHTML='';
+  PAN_ITEMS.forEach(it=>{
+    const el=document.createElement('div');
+    el.className='pan-ingred-btn';
+    el.textContent=it.emoji;
+    el.title='Add '+it.name;
+    el.addEventListener('pointerdown',()=>addToPan(el,it));
+    wrap.appendChild(el);
+  });
+}
+
+function addToPan(el,item){
+  if(PK.cooking||PK.items.length>=2){ CN.Room.greet('Pan is full! Tap to cook! 🍳'); return; }
+  el.classList.add('added');
+  PK.items.push(item);
+  CN.Audio.play('tap'); CN.FX.haptic('tap');
+  // Place food on pan surface
+  const surf=document.getElementById('panSurface');
+  surf.classList.add('heating');
+  const food=document.createElement('div');
+  food.className='pan-food'; food.textContent=item.emoji;
+  food.style.left=(20+Math.random()*40)+'%';
+  food.style.top=(15+Math.random()*35)+'%';
+  surf.appendChild(food);
+  CN.Room.greet(`${item.name} in the pan! Tap the pan to cook! 🍳`);
+  document.getElementById('panBtn').textContent='🔥 Cook it!';
+}
+
+function tapPan(e){
+  if(PK.items.length===0){ CN.Room.greet('Add an ingredient first! 🥚'); return; }
+  if(PK.cooking){ CN.Room.greet('Sizzling... wait for it! 🔥'); return; }
+  startCooking();
+}
+
+function startCooking(){
+  PK.cooking=true;
+  CN.Audio.play('sizzle'); CN.FX.haptic('drill');
+  CN.Room.greet('Sizzle sizzle! 🔥 Watch it cook!');
+
+  // Add steam
+  const steam=document.getElementById('panSteam');
+  steam.innerHTML='<div class="pan-steam-puff"></div><div class="pan-steam-puff"></div><div class="pan-steam-puff"></div>';
+
+  // Update dots
+  document.getElementById('pd1').classList.add('done');
+  setTimeout(()=>document.getElementById('pd2').classList.add('done'),1200);
+
+  PK.cookTimer=setTimeout(()=>{
+    document.getElementById('pd3').classList.add('done');
+    finishCooking();
+  },2800);
+}
+
+function finishCooking(){
+  PK.cooking=false;
+  CN.Audio.play('success'); CN.FX.haptic('success');
+  CN.Room.greet('Done! Delicious! 🍳✨');
+  document.getElementById('panSteam').innerHTML='';
+
+  // Show cooked items
+  const surf=document.getElementById('panSurface');
+  surf.querySelectorAll('.pan-food').forEach((el,i)=>{
+    el.textContent=PK.items[i]?.cooked||'🍽️';
+    if(window.gsap) gsap.fromTo(el,{scale:0},{scale:1,duration:.4,ease:'back.out(2.5)'});
+  });
+
+  setTimeout(()=>{
+    PK.items.forEach(item=>{
+      addReadyItem({type:'cooked_'+item.name.toLowerCase(),emoji:item.cooked,name:'Cooked '+item.name,data:{}});
+    });
+    // Reset pan
+    PK.items=[];
+    document.getElementById('panSurface').innerHTML='';
+    document.getElementById('panSurface').classList.remove('heating');
+    document.getElementById('panBtn').textContent='Add Ingredient!';
+    document.querySelectorAll('.pan-ingred-btn').forEach(el=>el.classList.remove('added'));
+    ['pd1','pd2','pd3'].forEach(id=>document.getElementById(id).classList.remove('done'));
+  },1200);
+}
+
+function panAction(){
+  if(PK.items.length===0) CN.Room.greet('Tap an ingredient above to add it! 🥚');
+  else tapPan({});
+}
+
+/* ── HOTSPOT SYSTEM ── */
+const KITCHEN_HS = [{"id": "oven", "emoji": "🔥", "label": "Oven", "cx": 52, "cy": 52, "rx": 14, "ry": 16}, {"id": "blender", "emoji": "🥤", "label": "Blender", "cx": 14, "cy": 52, "rx": 10, "ry": 14}, {"id": "cookies", "emoji": "🍪", "label": "Cookie Tray", "cx": 23, "cy": 55, "rx": 9, "ry": 12}, {"id": "chop", "emoji": "🔪", "label": "Chop Board", "cx": 38, "cy": 78, "rx": 13, "ry": 13}, {"id": "pan", "emoji": "🍳", "label": "Sizzle Pan", "cx": 62, "cy": 78, "rx": 11, "ry": 12}, {"id": "sink", "emoji": "🚰", "label": "Sink", "cx": 83, "cy": 52, "rx": 10, "ry": 14}];
+
+function initHotspots(){
+  CN.Hotspots.init('kitchen', KITCHEN_HS, openPanel);
+  setTimeout(moveStationsIntoPanels, 200);
+}
+
+function openPanel(id){
+  closeAllPanels();
+  const panel = document.getElementById('kpanel_'+id);
+  if(!panel){ CN.Room.greet('Coming soon! 🚧'); return; }
+  panel.classList.add('open');
+  CN.Hotspots.highlight(id);
+  // Scroll panel to top
+  panel.scrollTop=0;
+  CN.FX.haptic('tap');
+  if(window.gsap) gsap.fromTo(panel,{y:'100%'},{y:'0%',duration:.35,ease:'back.out(1.4)'});
+}
+
+function closeAllPanels(){
+  document.querySelectorAll('.room-panel').forEach(p=>{
+    if(p.classList.contains('open')){
+      p.classList.remove('open');
+      document.querySelectorAll('.hs-zone').forEach(z=>z.classList.remove('hs-active'));
+    }
+  });
+}
+
+</script>
+
+<!-- ══ ACTIVITY PANELS ══ -->
+
+<div class="room-panel" id="kpanel_oven">
+  <div class="room-panel-hud">
+    <button class="panel-close-btn" onclick="closeAllPanels()">✕</button>
+    <div class="panel-title">🔥 Oven</div>
+    <div id="coin-display-poven" style="font-family:var(--font-title);font-size:.85rem;color:var(--gold);padding:4px 10px;background:rgba(0,0,0,.3);border-radius:10px">🪙 0</div>
+  </div>
+  <div class="panel-body" id="pbody_oven">
+    <!-- Content injected from existing station #ovenStation -->
+  </div>
+</div>
+
+<div class="room-panel" id="kpanel_blender">
+  <div class="room-panel-hud">
+    <button class="panel-close-btn" onclick="closeAllPanels()">✕</button>
+    <div class="panel-title">🥤 Blender</div>
+    <div id="coin-display-pblender" style="font-family:var(--font-title);font-size:.85rem;color:var(--gold);padding:4px 10px;background:rgba(0,0,0,.3);border-radius:10px">🪙 0</div>
+  </div>
+  <div class="panel-body" id="pbody_blender">
+    <!-- Content injected from existing station #blenderStation -->
+  </div>
+</div>
+
+<div class="room-panel" id="kpanel_cookies">
+  <div class="room-panel-hud">
+    <button class="panel-close-btn" onclick="closeAllPanels()">✕</button>
+    <div class="panel-title">🍪 Cookie Tray</div>
+    <div id="coin-display-pcookies" style="font-family:var(--font-title);font-size:.85rem;color:var(--gold);padding:4px 10px;background:rgba(0,0,0,.3);border-radius:10px">🪙 0</div>
+  </div>
+  <div class="panel-body" id="pbody_cookies">
+    <!-- Content injected from existing station #cookieStation -->
+  </div>
+</div>
+
+<div class="room-panel" id="kpanel_chop">
+  <div class="room-panel-hud">
+    <button class="panel-close-btn" onclick="closeAllPanels()">✕</button>
+    <div class="panel-title">🔪 Chop Board</div>
+    <div id="coin-display-pchop" style="font-family:var(--font-title);font-size:.85rem;color:var(--gold);padding:4px 10px;background:rgba(0,0,0,.3);border-radius:10px">🪙 0</div>
+  </div>
+  <div class="panel-body" id="pbody_chop">
+    <!-- Content injected from existing station #chopStation -->
+  </div>
+</div>
+
+<div class="room-panel" id="kpanel_pan">
+  <div class="room-panel-hud">
+    <button class="panel-close-btn" onclick="closeAllPanels()">✕</button>
+    <div class="panel-title">🍳 Sizzle Pan</div>
+    <div id="coin-display-ppan" style="font-family:var(--font-title);font-size:.85rem;color:var(--gold);padding:4px 10px;background:rgba(0,0,0,.3);border-radius:10px">🪙 0</div>
+  </div>
+  <div class="panel-body" id="pbody_pan" style="position:relative;padding:0;overflow:hidden">
+    <!-- Fog canvas overlays the pan when cooking -->
+    <div id="fogWrap" style="position:relative;width:100%;display:flex;flex-direction:column;align-items:center;gap:10px;padding:10px;">
+      <div style="position:relative;width:min(260px,72vw)">
+        <canvas id="fogCanvas" style="position:absolute;inset:0;width:100%;height:100%;border-radius:16px;pointer-events:none;opacity:0;z-index:5;touch-action:none;"></canvas>
+        <!-- Pan visual -->
+        <div class="pan-visual-wrap" id="panVisualWrap" style="width:100%;aspect-ratio:1.4;background:linear-gradient(145deg,#444,#333);border-radius:16px;border:3px solid #555;display:flex;align-items:center;justify-content:center;position:relative;overflow:hidden;">
+          <div id="pvSurface" style="display:flex;gap:8px;align-items:center;justify-content:center;font-size:2rem;z-index:2;position:relative;flex-wrap:wrap;padding:8px;min-height:60px;"></div>
+          <div id="pvSteam" style="position:absolute;top:-10px;left:0;right:0;display:flex;justify-content:space-around;pointer-events:none;font-size:1.5rem;opacity:0;transition:opacity .5s;"></div>
+          <div id="pvFlame" style="position:absolute;bottom:0;left:0;right:0;height:8px;background:linear-gradient(90deg,#ff6d00,#ffab00,#ff6d00);opacity:0;transition:opacity .3s;border-radius:0 0 13px 13px;"></div>
+        </div>
+      </div>
+      <!-- Ingredient shelf -->
+      <div id="panIngredShelf" style="display:flex;gap:6px;flex-wrap:wrap;justify-content:center;"></div>
+      <!-- Step dots + cook btn -->
+      <div style="display:flex;align-items:center;gap:12px;">
+        <div style="display:flex;gap:6px;" id="pvDots">
+          <div id="pvd1" class="prog-dot"></div>
+          <div id="pvd2" class="prog-dot"></div>
+          <div id="pvd3" class="prog-dot"></div>
+        </div>
+        <button id="pvCookBtn" class="cn-btn" onclick="pvStartCook()" style="font-size:.8rem;padding:8px 18px">🍳 Cook It!</button>
+      </div>
+      <!-- Fog instruction (shows when foggy) -->
+      <div id="fogHint" style="display:none;font-family:var(--font-title);font-size:.75rem;color:rgba(255,255,255,.7);text-align:center;animation:pulse 1s ease-in-out infinite alternate">
+        💨 Wipe the steam to see what's cooking!
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="room-panel" id="kpanel_sink">
+  <div class="room-panel-hud">
+    <button class="panel-close-btn" onclick="closeAllPanels()">✕</button>
+    <div class="panel-title">🚰 Sink</div>
+    <div id="coin-display-psink" style="font-family:var(--font-title);font-size:.85rem;color:var(--gold);padding:4px 10px;background:rgba(0,0,0,.3);border-radius:10px">🪙 0</div>
+  </div>
+  <div class="panel-body" id="pbody_sink">
+    <!-- Content injected from existing station #sinkStation -->
+  </div>
+</div>
+
+
+<!-- ══ HIDDEN JOHNNY ══ -->
+<div id="johnnyHide" class="johnny-hide" style="left:4%;bottom:28%" onclick="findJohnny()" title="Who's hiding?">
+  <span class="johnny-peek">👀</span>
+</div>
+<div id="johnnyPop" class="johnny-pop" style="display:none">
+  <span class="johnny-emoji">👦</span>
+  <div class="johnny-shout">Found me! 😄 (behind the cabinet)</div>
+</div>
+
+<script>
+/* ══ HIDDEN JOHNNY ══ */
+let _johnnyFound = false;
+(function initJohnny(){
+  // Fade in after 8s so player has time to explore first
+  setTimeout(()=>{
+    const el=document.getElementById('johnnyHide');
+    if(el && !_johnnyFound) el.style.opacity='1';
+  }, 8000);
+})();
+
+function findJohnny(){
+  if(_johnnyFound) return;
+  _johnnyFound = true;
+  const hide=document.getElementById('johnnyHide');
+  const pop =document.getElementById('johnnyPop');
+  if(!hide||!pop) return;
+
+  hide.style.opacity='0';
+  hide.style.pointerEvents='none';
+
+  // Position pop where hide was
+  const rect=hide.getBoundingClientRect();
+  pop.style.cssText=`position:fixed;left:${rect.left}px;top:${rect.top-40}px;z-index:800;display:flex;flex-direction:column;align-items:center;gap:6px;pointer-events:none;`;
+  pop.style.display='flex';
+
+  CN.Audio.play('celebrate'); CN.FX.haptic('success');
+  CN.Coins.add(5,'found_johnny'); renderToyboxBar();
+  CN.Room.greet("You found Johnny! 👦 +5 🪙 Golden coins!");
+
+  // Burst stars from his position
+  CN.FX.stars(rect.left+rect.width/2, rect.top, 12, ['⭐','🌟','💫','✨','🎉','👦']);
+
+  if(window.gsap){
+    gsap.timeline()
+      .from(pop.querySelector('.johnny-emoji'),{scale:0,rotation:-20,duration:.5,ease:'back.out(3)'})
+      .from(pop.querySelector('.johnny-shout'),{y:10,opacity:0,duration:.3},'-=.2')
+      .to(pop,{y:-30,opacity:0,duration:.6,delay:2,ease:'power2.in',onComplete:()=>pop.style.display='none'});
+  } else {
+    setTimeout(()=>pop.style.display='none', 2500);
+  }
+}
+
+</script>
+
+<!-- Quick room nav -->
+<button id="room-nav-btn" onclick="toggleRoomNav()" title="Switch Room">🗺</button>
+<div id="room-nav-panel">
+  <div style="font-family:'Fredoka One',cursive;font-size:.58rem;color:rgba(255,255,255,.4);text-align:center;padding:4px 0 2px;letter-spacing:.06em;text-transform:uppercase">Jump To Room</div>
+  <button style="display:flex;align-items:center;gap:10px;padding:9px 12px;border-radius:13px;cursor:pointer;touch-action:manipulation;border:none;background:transparent;width:100%;text-align:left;color:#fff;font-family:'Fredoka One',cursive;font-size:.72rem;transition:background .12s" onmouseenter="this.style.background='rgba(255,255,255,.1)'" onmouseleave="this.style.background='transparent'" ontouchstart="this.style.background='rgba(255,255,255,.1)'" ontouchend="this.style.background='transparent'" onclick="roomNavTo('home')"><span style="font-size:1.3rem;flex-shrink:0">🏡</span> Cathy's Home</button>
+  <button style="display:flex;align-items:center;gap:10px;padding:9px 12px;border-radius:13px;cursor:pointer;touch-action:manipulation;border:none;background:transparent;width:100%;text-align:left;color:#fff;font-family:'Fredoka One',cursive;font-size:.72rem;transition:background .12s" onmouseenter="this.style.background='rgba(255,255,255,.1)'" onmouseleave="this.style.background='transparent'" ontouchstart="this.style.background='rgba(255,255,255,.1)'" ontouchend="this.style.background='transparent'" onclick="roomNavTo('salon')"><span style="font-size:1.3rem;flex-shrink:0">💅</span> Royal Salon</button>
+  <button style="display:flex;align-items:center;gap:10px;padding:9px 12px;border-radius:13px;cursor:pointer;touch-action:manipulation;border:none;background:transparent;width:100%;text-align:left;color:#fff;font-family:'Fredoka One',cursive;font-size:.72rem;transition:background .12s" onmouseenter="this.style.background='rgba(255,255,255,.1)'" onmouseleave="this.style.background='transparent'" ontouchstart="this.style.background='rgba(255,255,255,.1)'" ontouchend="this.style.background='transparent'" onclick="roomNavTo('garage')"><span style="font-size:1.3rem;flex-shrink:0">🔧</span> Garage Workshop</button>
+  <button style="display:flex;align-items:center;gap:10px;padding:9px 12px;border-radius:13px;cursor:pointer;touch-action:manipulation;border:none;background:transparent;width:100%;text-align:left;color:#fff;font-family:'Fredoka One',cursive;font-size:.72rem;transition:background .12s" onmouseenter="this.style.background='rgba(255,255,255,.1)'" onmouseleave="this.style.background='transparent'" ontouchstart="this.style.background='rgba(255,255,255,.1)'" ontouchend="this.style.background='transparent'" onclick="roomNavTo('driveway')"><span style="font-size:1.3rem;flex-shrink:0">🚗</span> Driveway</button>
+  <button style="display:flex;align-items:center;gap:10px;padding:9px 12px;border-radius:13px;cursor:pointer;touch-action:manipulation;border:none;background:transparent;width:100%;text-align:left;color:#fff;font-family:'Fredoka One',cursive;font-size:.72rem;transition:background .12s" onmouseenter="this.style.background='rgba(255,255,255,.1)'" onmouseleave="this.style.background='transparent'" ontouchstart="this.style.background='rgba(255,255,255,.1)'" ontouchend="this.style.background='transparent'" onclick="roomNavTo('pond')"><span style="font-size:1.3rem;flex-shrink:0">🐘</span> The Pond</button>
+  <button style="display:flex;align-items:center;gap:10px;padding:9px 12px;border-radius:13px;cursor:pointer;touch-action:manipulation;border:none;background:transparent;width:100%;text-align:left;color:#fff;font-family:'Fredoka One',cursive;font-size:.72rem;transition:background .12s" onmouseenter="this.style.background='rgba(255,255,255,.1)'" onmouseleave="this.style.background='transparent'" ontouchstart="this.style.background='rgba(255,255,255,.1)'" ontouchend="this.style.background='transparent'" onclick="roomNavTo('mower')"><span style="font-size:1.3rem;flex-shrink:0">🚜</span> Lawn Mower</button>
+  <button style="display:flex;align-items:center;gap:10px;padding:9px 12px;border-radius:13px;cursor:pointer;touch-action:manipulation;border:none;background:transparent;width:100%;text-align:left;color:#fff;font-family:'Fredoka One',cursive;font-size:.72rem;transition:background .12s" onmouseenter="this.style.background='rgba(255,255,255,.1)'" onmouseleave="this.style.background='transparent'" ontouchstart="this.style.background='rgba(255,255,255,.1)'" ontouchend="this.style.background='transparent'" onclick="roomNavTo('garden')"><span style="font-size:1.3rem;flex-shrink:0">🥕</span> The Garden</button>
+  <button style="display:flex;align-items:center;gap:10px;padding:9px 12px;border-radius:13px;cursor:pointer;touch-action:manipulation;border:none;background:transparent;width:100%;text-align:left;color:#fff;font-family:'Fredoka One',cursive;font-size:.72rem;transition:background .12s" onmouseenter="this.style.background='rgba(255,255,255,.1)'" onmouseleave="this.style.background='transparent'" ontouchstart="this.style.background='rgba(255,255,255,.1)'" ontouchend="this.style.background='transparent'" onclick="roomNavTo('construction')"><span style="font-size:1.3rem;flex-shrink:0">🏗️</span> Alphabet Construction</button>
+  <button style="display:flex;align-items:center;gap:10px;padding:9px 12px;border-radius:13px;cursor:pointer;touch-action:manipulation;border:none;background:transparent;width:100%;text-align:left;color:#fff;font-family:'Fredoka One',cursive;font-size:.72rem;transition:background .12s" onmouseenter="this.style.background='rgba(255,255,255,.1)'" onmouseleave="this.style.background='transparent'" ontouchstart="this.style.background='rgba(255,255,255,.1)'" ontouchend="this.style.background='transparent'" onclick="roomNavTo('music')"><span style="font-size:1.3rem;flex-shrink:0">🎵</span> Music Lab</button>
+  <div style="height:1px;background:rgba(255,255,255,.08);margin:2px 6px"></div>
+  <button style="display:flex;align-items:center;gap:10px;padding:9px 12px;border-radius:13px;cursor:pointer;touch-action:manipulation;border:none;background:transparent;width:100%;color:#fff;font-family:'Fredoka One',cursive;font-size:.72px;justify-content:center;transition:background .12s" onmouseenter="this.style.background='rgba(255,255,255,.1)'" onmouseleave="this.style.background='transparent'" onclick="CN.Room.goHome()">
+    <span style="font-size:1.3rem">🗺️</span> Back to Map
+  </button>
+</div>
+<script>
+var _rnOpen=false;
+function toggleRoomNav(){_rnOpen=!_rnOpen;var p=document.getElementById('room-nav-panel');p.style.display=_rnOpen?'flex':'none';document.getElementById('room-nav-btn').style.background=_rnOpen?'linear-gradient(135deg,#dc2626,#991b1b)':'linear-gradient(135deg,#7c3aed,#4c1d95)';}
+function roomNavTo(id){_rnOpen=false;document.getElementById('room-nav-panel').style.display='none';window.location.href='../'+id+'/index.html';}
+document.addEventListener('pointerdown',function(e){if(_rnOpen&&!e.target.closest('#room-nav-btn')&&!e.target.closest('#room-nav-panel')){_rnOpen=false;document.getElementById('room-nav-panel').style.display='none';}});
+</script>
+</body>
+</html>
