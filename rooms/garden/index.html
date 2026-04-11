@@ -1,0 +1,578 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<title>The Garden — Cathy's Neighborhood</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Nunito:wght@400;700;800;900&family=Fredoka+One&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="../../shared/room-shell.css">
+<style>
+body {
+  background: none;
+  background-color: #1a1a2e;
+  overflow: hidden;
+}
+#stage-overlay {
+  position: fixed; inset: 0; z-index: 0;
+  background: rgba(0,0,0,0.40);
+  pointer-events: none;
+}
+#stage {
+  display: flex; flex-direction: column; align-items: center;
+  padding: 10px 12px 6px; gap: 10px;
+}
+
+.section-title { font-family:var(--font-title); font-size:clamp(.85rem,2.5vw,1rem); color:var(--gold); letter-spacing:.06em; text-transform:uppercase; }
+
+/* ── SKY ── */
+.sky { position:absolute; top:0;left:0;right:0; height:30%; background:linear-gradient(180deg,#1565c0,#42a5f5,transparent); pointer-events:none; border-radius:0; }
+.sun { position:absolute; top:12px; right:16px; font-size:clamp(2rem,6vw,3rem); animation:sunFloat 4s ease-in-out infinite alternate; pointer-events:none; }
+@keyframes sunFloat { from{transform:translateY(0) rotate(-5deg)} to{transform:translateY(-8px) rotate(5deg)} }
+
+/* ── GARDEN BEDS ── */
+.garden-grid {
+  display:grid; grid-template-columns:repeat(3,1fr); gap:10px;
+  width:100%; max-width:480px; position:relative; z-index:1;
+}
+.garden-bed {
+  background:linear-gradient(180deg,#5d4037,#3e2723);
+  border-radius:16px; padding:10px;
+  border:3px solid #4e342e;
+  box-shadow:0 4px 12px rgba(0,0,0,.4), inset 0 2px 6px rgba(0,0,0,.2);
+  display:flex; flex-direction:column; align-items:center; gap:6px;
+  cursor:pointer; transition:transform .15s; min-height:120px; position:relative;
+}
+.garden-bed:active { transform:scale(.96); }
+.bed-label { font-family:var(--font-title); font-size:.65rem; color:rgba(255,255,255,.6); }
+
+/* Plant growth stages */
+.plant {
+  font-size:clamp(2rem,7vw,3rem);
+  transition:transform .4s cubic-bezier(.34,1.56,.64,1), opacity .3s;
+  filter:drop-shadow(0 2px 6px rgba(0,0,0,.3));
+  line-height:1;
+}
+.plant.growing { animation:growPop .5s cubic-bezier(.34,1.56,.64,1); }
+@keyframes growPop { from{transform:scale(.5) translateY(10px)} to{transform:scale(1) translateY(0)} }
+
+/* Water drops */
+.water-drop {
+  position:absolute; pointer-events:none; font-size:1rem;
+  animation:dropFall .6s ease-in forwards;
+}
+@keyframes dropFall {
+  from{transform:translateY(-20px);opacity:1}
+  to{transform:translateY(30px);opacity:0}
+}
+
+/* Progress bar per bed */
+.grow-bar { width:100%; height:6px; background:rgba(0,0,0,.3); border-radius:3px; overflow:hidden; }
+.grow-fill { height:100%; border-radius:3px; background:linear-gradient(90deg,#66bb6a,#00e676); transition:width .5s ease; }
+
+/* ── TOOLS ── */
+.tool-strip {
+  display:flex; gap:8px; justify-content:center; flex-wrap:wrap;
+  width:100%; max-width:480px;
+}
+.garden-tool {
+  display:flex; flex-direction:column; align-items:center; gap:4px;
+  background:rgba(0,0,0,.25); border-radius:14px; padding:10px 12px;
+  cursor:pointer; border:1.5px solid rgba(255,255,255,.15);
+  transition:all .15s; min-width:64px;
+}
+.garden-tool:active { transform:scale(.9); background:rgba(255,255,255,.1); }
+.garden-tool.active-tool { border-color:var(--gold); background:rgba(255,215,0,.12); }
+.tool-emoji { font-size:1.6rem; }
+.tool-label { font-family:var(--font-title); font-size:.65rem; color:rgba(255,255,255,.8); }
+
+/* Seed selector */
+.seed-row {
+  display:flex; gap:6px; flex-wrap:wrap; justify-content:center;
+  background:rgba(0,0,0,.2); border-radius:14px; padding:8px 12px;
+  border:1px solid rgba(255,255,255,.1); width:100%; max-width:480px;
+}
+.seed {
+  font-size:1.4rem; padding:6px 8px;
+  background:rgba(255,255,255,.1); border:1.5px solid rgba(255,255,255,.2);
+  border-radius:10px; cursor:pointer; transition:all .15s;
+}
+.seed.selected { border-color:var(--gold); background:rgba(255,215,0,.15); transform:scale(1.15); }
+.seed:active { transform:scale(.85); }
+
+/* Harvest basket */
+.basket {
+  width:100%; max-width:480px;
+  background:rgba(0,0,0,.25); border-radius:16px; padding:10px 14px;
+  border:1.5px solid rgba(255,255,255,.15);
+  min-height:60px;
+}
+.basket-title { font-family:var(--font-title); font-size:.8rem; color:rgba(255,255,255,.7); margin-bottom:6px; }
+.basket-items { display:flex; gap:8px; flex-wrap:wrap; min-height:40px; align-items:center; }
+.basket-item {
+  font-size:1.6rem; cursor:pointer; transition:transform .15s;
+  background:rgba(255,255,255,.12); border-radius:10px; padding:5px 7px;
+  border:1.5px solid rgba(255,255,255,.2);
+}
+.basket-item:active { transform:scale(.85); }
+
+/* ── ILLUSTRATION BACKGROUND SUPPORT ── */
+
+.workbench, .print-lab, .wash-station, .charger-station,
+.mirror-frame, .mirror-wrap, .keyboard-wrap, .drum-grid,
+.loop-grid, .garden-bed, .controls, .dashboard, .lawn-wrap,
+.block-yard, .word-display, .food-shelf, .basket,
+.palette, .tools, .nail-row, .sticker-tray,
+.bpm-wrap, .tool-strip, .seed-row, .challenge-card,
+.stations, .station {
+  background: rgba(10, 12, 30, 0.72) !important;
+  backdrop-filter: blur(10px) !important;
+  -webkit-backdrop-filter: blur(10px) !important;
+  border-color: rgba(255,255,255,0.18) !important;
+}
+.station {
+  background: rgba(10, 12, 30, 0.75) !important;
+}
+.garden-bed {
+  background: linear-gradient(180deg, rgba(60,30,15,0.85), rgba(40,20,8,0.9)) !important;
+}
+.broken-item {
+  background: rgba(0,0,0,0.5) !important;
+}
+.car-wrap {
+  background: linear-gradient(180deg, rgba(100,160,220,0.6), rgba(200,230,255,0.4)) !important;
+}
+
+
+/* ── HIDDEN JOHNNY ── */
+.johnny-hide {
+  position:fixed; z-index:50;
+  cursor:pointer; touch-action:manipulation;
+  -webkit-tap-highlight-color:transparent;
+  opacity:0; /* starts invisible — fades in after 8s */
+  transition:opacity 1s;
+  animation:none;
+}
+.johnny-peek {
+  font-size:clamp(1.2rem,4vw,1.8rem);
+  display:block;
+  animation:peekBob 2s ease-in-out infinite alternate;
+  filter:drop-shadow(0 2px 4px rgba(0,0,0,.4));
+}
+@keyframes peekBob { from{transform:translateY(0) rotate(-5deg)} to{transform:translateY(-6px) rotate(5deg)} }
+.johnny-pop {
+  position:fixed; z-index:800;
+  display:flex; flex-direction:column; align-items:center; gap:6px;
+  pointer-events:none;
+}
+.johnny-emoji { font-size:clamp(3rem,12vw,5rem); animation:johnnyJump .6s cubic-bezier(.34,1.5,.64,1) forwards; }
+@keyframes johnnyJump { from{transform:scale(0) rotate(-20deg)} to{transform:scale(1) rotate(0)} }
+.johnny-shout { font-family:var(--font-title); font-size:1rem; color:var(--gold); text-shadow:0 2px 8px rgba(0,0,0,.6); white-space:nowrap; }
+</style>
+</head>
+<body class="has-basket">
+<div id="bg-layer" style="background-image:url('bg.png')"></div>
+<div id="room-hud">
+  <div class="hud-inner">
+    <button id="back-btn" onclick="CN.Room.goBack()">← Back</button>
+    <div class="hud-room-name">🌱 <span>The Garden</span></div>
+    <div class="hud-right">
+      <button class="hud-btn" id="audioBtn" onclick="toggleAudio()" title="Toggle sound">🔊</button>
+      <button class="hud-btn" onclick="CN.Room.goHome()">🏠 Map</button>
+    </div>
+  </div>
+</div>
+<div id="greeting"></div>
+
+<div id="stage">
+  <!-- ── HOTSPOT SCENE ── -->
+  <div class="hs-scene" id="hsScene">
+    <img src="bg.png" class="scene-bg" alt="The Garden">
+    <div id="hs-layer"></div>
+  </div>
+  <div style="font-family:var(--font-title);font-size:.75rem;color:rgba(255,255,255,.65);text-align:center;padding:2px 0">
+    👆 Tap objects to play!
+  </div>
+  <!-- Activities scroll below scene -->
+  <div class="sky"></div>
+  <div class="sun">☀️</div>
+
+  <div class="section-title">🌱 Choose a Seed</div>
+  <div class="seed-row" id="seedRow"></div>
+
+  <div class="section-title">🛠️ Garden Tools</div>
+  <div class="tool-strip" id="toolStrip"></div>
+
+  <div class="section-title">🌻 Garden Beds</div>
+  <div class="garden-grid" id="gardenGrid"></div>
+
+  <div class="basket">
+    <div class="basket-title">🧺 Harvest Basket — tap to add to Toybox!</div>
+    <div class="basket-items" id="basketItems">
+      <span style="font-family:var(--font-title);font-size:.72rem;color:rgba(255,255,255,.35)">Nothing harvested yet…</span>
+    </div>
+  </div>
+</div>
+
+<!-- Basket Bar -->
+<div id="basket-bar-wrap">
+  <div class="basket-lbl">🧺</div>
+  <div id="basket-bar"></div>
+  <div id="coin-display">🪙 0</div>
+</div>
+<!-- Toybox Bar -->
+<div id="toybox-bar-wrap">
+  <div class="bar-row"><div class="tb-label">🧸</div><div id="toybox-bar"></div><div id="coin-display">🪙 0</div></div>
+  <div class="bar-row"><div class="tb-label">🧺</div><div id="basket-bar"></div></div>
+</div>
+<div id="celebrate">
+  <div class="celebrate-card">
+    <div class="celebrate-emoji" id="celEmoji">🌻</div>
+    <div class="celebrate-title" id="celTitle">It Grew!</div>
+    <div class="celebrate-msg" id="celMsg">Harvest time!</div>
+    <button class="cn-btn cn-btn-lg" style="background:linear-gradient(135deg,#2e7d32,#1b5e20)" onclick="hideCelebrate()">Keep Growing! 🌱</button>
+  </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/gsap@3.12.5/dist/gsap.min.js"></script>
+<script src="../../shared/cn-core.js"></script>
+<script>
+'use strict';
+const ROOM_ID = 'garden';
+
+const SEEDS = [
+  { emoji:'🥕', name:'Carrot',     stages:['🌱','🌿','🥕'], type:'carrot'  },
+  { emoji:'🍅', name:'Tomato',     stages:['🌱','🌿','🍅'], type:'tomato'  },
+  { emoji:'🥦', name:'Broccoli',   stages:['🌱','🌿','🥦'], type:'broccoli'},
+  { emoji:'🌻', name:'Sunflower',  stages:['🌱','🌿','🌻'], type:'flower'  },
+  { emoji:'🍓', name:'Strawberry', stages:['🌱','🌿','🍓'], type:'berry'   },
+  { emoji:'🌽', name:'Corn',       stages:['🌱','🌿','🌽'], type:'corn'    },
+];
+
+const TOOLS = [
+  { emoji:'🌱', label:'Plant',  id:'plant'  },
+  { emoji:'💧', label:'Water',  id:'water'  },
+  { emoji:'☀️', label:'Sun',   id:'sun'    },
+  { emoji:'✂️', label:'Prune', id:'prune'  },
+];
+
+const NUM_BEDS = 6;
+let G = {
+  selectedSeed: 0,
+  activeTool:   'plant',
+  beds: Array(NUM_BEDS).fill(null).map(() => ({ stage:0, seed:null, water:0, sun:0 })),
+  harvest: [],
+};
+
+CN.Room.init(ROOM_ID, async (saved) => {
+  if (saved?.beds) G.beds = saved.beds;
+  if (saved?.harvest) G.harvest = saved.harvest;
+  buildSeeds();
+  buildTools();
+  buildBeds();
+  buildBasket();
+  
+  // GSAP button press feedback on all interactive elements
+  document.querySelectorAll('.cn-btn,.pad,.tool-card,.car-btn,.seed,.garden-tool,.fix-tool,.tool-btn,.loop-btn,.voice-btn,.block,.key').forEach(el => {
+    el.addEventListener('pointerdown', () => CN.Anim && CN.Anim.btnPress(el));
+  });
+  CN.Room.greet("Welcome to the garden! Plant seeds and watch them grow! 🌱");
+  CN.Audio.bgStart('garden');
+  setTimeout(()=>initRoomHotspots(),300);
+});
+
+function buildSeeds() {
+  const row = document.getElementById('seedRow');
+  row.innerHTML = '';
+  SEEDS.forEach((s,i) => {
+    const el = document.createElement('div');
+    el.className = 'seed' + (i===0?' selected':'');
+    el.textContent = s.emoji;
+    el.title = s.name;
+    el.onclick = () => {
+      document.querySelectorAll('.seed').forEach(x=>x.classList.remove('selected'));
+      el.classList.add('selected');
+      G.selectedSeed = i;
+    };
+    row.appendChild(el);
+  });
+}
+
+function buildTools() {
+  const strip = document.getElementById('toolStrip');
+  strip.innerHTML = '';
+  TOOLS.forEach(t => {
+    const el = document.createElement('div');
+    el.className = 'garden-tool' + (t.id===G.activeTool?' active-tool':'');
+    el.innerHTML = `<div class="tool-emoji">${t.emoji}</div><div class="tool-label">${t.label}</div>`;
+    el.onclick = () => {
+      G.activeTool = t.id;
+      document.querySelectorAll('.garden-tool').forEach(x=>x.classList.remove('active-tool'));
+      el.classList.add('active-tool');
+    };
+    strip.appendChild(el);
+  });
+}
+
+function buildBeds() {
+  const grid = document.getElementById('gardenGrid');
+  grid.innerHTML = '';
+  G.beds.forEach((bed, i) => {
+    const el = document.createElement('div');
+    el.className = 'garden-bed';
+    el.onclick = () => useTool(i, el);
+    const plant = bed.seed ? bed.seed.stages[Math.min(bed.stage, bed.seed.stages.length-1)] : '🟫';
+    el.innerHTML = `
+      <div class="bed-label">Bed ${i+1}</div>
+      <div class="plant" id="plant_${i}">${plant}</div>
+      <div class="grow-bar"><div class="grow-fill" id="grow_${i}" style="width:${bed.stage/2*100}%"></div></div>
+    `;
+    grid.appendChild(el);
+  });
+}
+
+function useTool(bedIdx, el) {
+  const bed = G.beds[bedIdx];
+  const tool = G.activeTool;
+
+  if (tool === 'plant') {
+    if (bed.seed) { CN.Room.greet("Something's already growing here! 🌱"); return; }
+    CN.Audio.play('plant');
+    bed.seed = SEEDS[G.selectedSeed];
+    bed.stage = 0; bed.water = 0; bed.sun = 0;
+    updateBed(bedIdx);
+    CN.FX.haptic('tap');
+    CN.Room.greet(`Planted ${bed.seed.name} in bed ${bedIdx+1}! Now water it! 💧`);
+
+  } else if (tool === 'water') {
+    if (!bed.seed) { CN.Room.greet("Plant a seed first! 🌱"); return; }
+    bed.water = Math.min(3, bed.water + 1);
+    spawnDrops(el);
+    CN.Audio.play('water');
+    CN.FX.haptic('tap');
+    tryGrow(bedIdx);
+
+  } else if (tool === 'sun') {
+    if (!bed.seed) { CN.Room.greet("Plant a seed first! 🌱"); return; }
+    bed.sun = Math.min(3, bed.sun + 1);
+    CN.Room.greet("Sunshine! ☀️");
+    CN.FX.haptic('tap');
+    tryGrow(bedIdx);
+
+  } else if (tool === 'prune') {
+    if (!bed.seed || bed.stage < 1) { CN.Room.greet("Nothing to prune yet!"); return; }
+    CN.Room.greet(`Pruned ${bed.seed.name}! Looking neat! ✂️`);
+    CN.FX.haptic('tap');
+    tryGrow(bedIdx);
+  }
+
+  saveGarden();
+}
+
+function tryGrow(bedIdx) {
+  const bed = G.beds[bedIdx];
+  if (!bed.seed) return;
+  const total = bed.water + bed.sun;
+  const newStage = Math.min(2, Math.floor(total / 2));
+
+  if (newStage > bed.stage) {
+    bed.stage = newStage;
+    updateBed(bedIdx);
+    (window.gsap ? CN.Anim.starBurst(window.innerWidth/2, window.innerHeight*.5, 6) : CN.FX.stars(window.innerWidth/2, window.innerHeight*.5, 6));
+
+    if (bed.stage === 2) {
+      CN.Room.greet(`${bed.seed.name} is ready to harvest! Tap to pick! 🎉`);
+      showCelebrate(bed.seed.emoji, 'It Grew!', `Your ${bed.seed.name} is ready!`);
+      setTimeout(()=>{ harvestBed(bedIdx); hideCelebrate(); }, 2500);
+    } else {
+      CN.Room.greet(`Growing... keep watering! ${['🌱','🌿'][bed.stage]}`);
+    }
+  }
+}
+
+function harvestBed(bedIdx) {
+  const bed = G.beds[bedIdx];
+  if (!bed.seed || bed.stage < 2) return;
+  CN.Audio.play('harvest');
+  G.harvest.push({ emoji: bed.seed.emoji, name: bed.seed.name, type: bed.seed.type });
+  bed.seed = null; bed.stage = 0; bed.water = 0; bed.sun = 0;
+  updateBed(bedIdx);
+  buildBasket();
+  saveGarden();
+}
+
+function updateBed(bedIdx) {
+  const bed = G.beds[bedIdx];
+  const plantEl = document.getElementById('plant_'+bedIdx);
+  const growEl  = document.getElementById('grow_'+bedIdx);
+  if (!plantEl) return;
+  const stage = bed.seed ? bed.seed.stages[Math.min(bed.stage, bed.seed.stages.length-1)] : '🟫';
+  plantEl.textContent = stage;
+  if(window.gsap){
+    gsap.fromTo(plantEl,{scale:0,rotation:-20,transformOrigin:'bottom center'},{scale:1,rotation:0,duration:.6,ease:'back.out(2.5)'});
+  } else {
+    plantEl.classList.add('growing');
+    setTimeout(() => plantEl.classList.remove('growing'), 600);
+  }
+  if (growEl) growEl.style.width = (bed.stage/2*100) + '%';
+}
+
+function spawnDrops(el) {
+  const rect = el.getBoundingClientRect();
+  for (let i=0;i<4;i++) {
+    const d = document.createElement('div');
+    d.className='water-drop';
+    d.textContent='💧';
+    d.style.cssText=`left:${rect.left+Math.random()*rect.width}px;top:${rect.top}px;font-size:.9rem;position:fixed;z-index:800;`;
+    document.body.appendChild(d);
+    setTimeout(()=>d.remove(),700);
+  }
+}
+
+function buildBasket() {
+  const items = document.getElementById('basketItems');
+  if (G.harvest.length === 0) {
+    items.innerHTML='<span style="font-family:var(--font-title);font-size:.72rem;color:rgba(255,255,255,.35)">Nothing harvested yet…</span>';
+    return;
+  }
+  items.innerHTML=''; // items animate in via stagger below
+
+  G.harvest.forEach((item, i) => {
+    const el = document.createElement('div');
+    el.className='basket-item'; el.textContent=item.emoji; el.title='Add to Toybox';
+    el.onclick=()=>addToToybox(item, i);
+    items.appendChild(el);
+  });
+}
+
+async function addToToybox(item, idx) {
+  const slot = await CN.Coins.add(2,'garden_harvest'); CN.Toybox.add({ type:item.type, emoji:item.emoji, name:item.name, origin:ROOM_ID, data:{} });
+  if (slot >= 0) {
+    G.harvest.splice(idx,1);
+    buildBasket();
+    CN.renderBothBars();
+    CN.FX.haptic('success');
+    (window.gsap ? CN.Anim.starBurst(window.innerWidth/2, window.innerHeight*.7, 8) : CN.FX.stars(window.innerWidth/2, window.innerHeight*.7, 8));
+    CN.Room.greet(`${item.emoji} ${item.name} packed in toybox! 🎒`);
+    saveGarden();
+  } else {
+    CN.Room.greet("Toybox is full! Use some items first! 🧸");
+  }
+}
+
+function showCelebrate(emoji,title,msg){ document.getElementById('celEmoji').textContent=emoji; document.getElementById('celTitle').textContent=title; document.getElementById('celMsg').textContent=msg; CN.Audio.play('celebrate');
+  CN.addCoins(10).then(()=>CN.updateCoinDisplay());
+  document.getElementById('celebrate').classList.add('show');
+  if(window.gsap) CN.Anim.celebrateIn(document.querySelector('.celebrate-card')); (window.gsap ? CN.Anim.confettiBurst(window.innerWidth/2,window.innerHeight*.3,28) : CN.FX.confetti(28)); }
+function hideCelebrate() { const overlay = document.getElementById('celebrate'); const card  = document.querySelector('.celebrate-card'); if(window.gsap && card) {  CN.Anim.celebrateOut(card, overlay); } else {  overlay.classList.remove('show'); }}
+
+async function saveGarden() {
+  await CN.Room.save(ROOM_ID,{ beds:G.beds, harvest:G.harvest });
+}
+// Stagger grid items on load
+document.addEventListener("DOMContentLoaded",()=>{setTimeout(()=>{const g=document.querySelector(".garden-grid");if(g&&window.gsap)CN.Anim.staggerIn(g);},400);});
+/* ── ROOM HOTSPOTS ── */
+const ROOM_HS_GARDEN = [{"id": "beds", "emoji": "🌱", "label": "Garden Beds", "cx": 50, "cy": 55, "rx": 38, "ry": 25}, {"id": "tools", "emoji": "🛠️", "label": "Garden Tools", "cx": 12, "cy": 75, "rx": 10, "ry": 14}, {"id": "harvest", "emoji": "🧺", "label": "Harvest", "cx": 88, "cy": 75, "rx": 10, "ry": 14}, {"id": "water", "emoji": "💧", "label": "Watering Can", "cx": 55, "cy": 28, "rx": 12, "ry": 14}];
+
+function initRoomHotspots(){
+  CN.Hotspots.init('garden', ROOM_HS_GARDEN, openRoomPanel);
+}
+
+function openRoomPanel(id){
+  // Scroll to the matching activity section
+  const mapping = { 'beds': 'bedsActivity', 'tools': 'toolsActivity', 'harvest': 'harvestActivity', 'water': 'waterActivity' };
+  const targetId = mapping[id] || id + 'Activity';
+  const el = document.getElementById(targetId) || document.querySelector('[data-activity="'+id+'"]');
+  if(el){
+    el.scrollIntoView({behavior:'smooth', block:'start'});
+    if(window.gsap) gsap.fromTo(el,{scale:.97,opacity:.7},{scale:1,opacity:1,duration:.35,ease:'back.out(2)'});
+    CN.Hotspots.highlight(id);
+    CN.Room.greet('Tap to play! 🎮');
+  } else {
+    CN.Room.greet('Tap objects in the room to play! 👆');
+  }
+}
+
+</script>
+
+<!-- ══ HIDDEN JOHNNY ══ -->
+<div id="johnnyHide" class="johnny-hide" style="left:3%;bottom:20%" onclick="findJohnny()" title="Who's hiding?">
+  <span class="johnny-peek">👀</span>
+</div>
+<div id="johnnyPop" class="johnny-pop" style="display:none">
+  <span class="johnny-emoji">👦</span>
+  <div class="johnny-shout">Found me! 😄 (under the sunflower)</div>
+</div>
+
+<script>
+/* ══ HIDDEN JOHNNY ══ */
+let _johnnyFound = false;
+(function initJohnny(){
+  // Fade in after 8s so player has time to explore first
+  setTimeout(()=>{
+    const el=document.getElementById('johnnyHide');
+    if(el && !_johnnyFound) el.style.opacity='1';
+  }, 8000);
+})();
+
+function findJohnny(){
+  if(_johnnyFound) return;
+  _johnnyFound = true;
+  const hide=document.getElementById('johnnyHide');
+  const pop =document.getElementById('johnnyPop');
+  if(!hide||!pop) return;
+
+  hide.style.opacity='0';
+  hide.style.pointerEvents='none';
+
+  // Position pop where hide was
+  const rect=hide.getBoundingClientRect();
+  pop.style.cssText=`position:fixed;left:${rect.left}px;top:${rect.top-40}px;z-index:800;display:flex;flex-direction:column;align-items:center;gap:6px;pointer-events:none;`;
+  pop.style.display='flex';
+
+  CN.Audio.play('celebrate'); CN.FX.haptic('success');
+  CN.Coins.add(5,'found_johnny'); renderToyboxBar();
+  CN.Room.greet("You found Johnny! 👦 +5 🪙 Golden coins!");
+
+  // Burst stars from his position
+  CN.FX.stars(rect.left+rect.width/2, rect.top, 12, ['⭐','🌟','💫','✨','🎉','👦']);
+
+  if(window.gsap){
+    gsap.timeline()
+      .from(pop.querySelector('.johnny-emoji'),{scale:0,rotation:-20,duration:.5,ease:'back.out(3)'})
+      .from(pop.querySelector('.johnny-shout'),{y:10,opacity:0,duration:.3},'-=.2')
+      .to(pop,{y:-30,opacity:0,duration:.6,delay:2,ease:'power2.in',onComplete:()=>pop.style.display='none'});
+  } else {
+    setTimeout(()=>pop.style.display='none', 2500);
+  }
+}
+
+</script>
+
+<!-- Quick room nav -->
+<button id="room-nav-btn" onclick="toggleRoomNav()" title="Switch Room">🗺</button>
+<div id="room-nav-panel">
+  <div style="font-family:'Fredoka One',cursive;font-size:.58rem;color:rgba(255,255,255,.4);text-align:center;padding:4px 0 2px;letter-spacing:.06em;text-transform:uppercase">Jump To Room</div>
+  <button style="display:flex;align-items:center;gap:10px;padding:9px 12px;border-radius:13px;cursor:pointer;touch-action:manipulation;border:none;background:transparent;width:100%;text-align:left;color:#fff;font-family:'Fredoka One',cursive;font-size:.72rem;transition:background .12s" onmouseenter="this.style.background='rgba(255,255,255,.1)'" onmouseleave="this.style.background='transparent'" ontouchstart="this.style.background='rgba(255,255,255,.1)'" ontouchend="this.style.background='transparent'" onclick="roomNavTo('home')"><span style="font-size:1.3rem;flex-shrink:0">🏡</span> Cathy's Home</button>
+  <button style="display:flex;align-items:center;gap:10px;padding:9px 12px;border-radius:13px;cursor:pointer;touch-action:manipulation;border:none;background:transparent;width:100%;text-align:left;color:#fff;font-family:'Fredoka One',cursive;font-size:.72rem;transition:background .12s" onmouseenter="this.style.background='rgba(255,255,255,.1)'" onmouseleave="this.style.background='transparent'" ontouchstart="this.style.background='rgba(255,255,255,.1)'" ontouchend="this.style.background='transparent'" onclick="roomNavTo('kitchen')"><span style="font-size:1.3rem;flex-shrink:0">🍳</span> Little Chef's Kitchen</button>
+  <button style="display:flex;align-items:center;gap:10px;padding:9px 12px;border-radius:13px;cursor:pointer;touch-action:manipulation;border:none;background:transparent;width:100%;text-align:left;color:#fff;font-family:'Fredoka One',cursive;font-size:.72rem;transition:background .12s" onmouseenter="this.style.background='rgba(255,255,255,.1)'" onmouseleave="this.style.background='transparent'" ontouchstart="this.style.background='rgba(255,255,255,.1)'" ontouchend="this.style.background='transparent'" onclick="roomNavTo('salon')"><span style="font-size:1.3rem;flex-shrink:0">💅</span> Royal Salon</button>
+  <button style="display:flex;align-items:center;gap:10px;padding:9px 12px;border-radius:13px;cursor:pointer;touch-action:manipulation;border:none;background:transparent;width:100%;text-align:left;color:#fff;font-family:'Fredoka One',cursive;font-size:.72rem;transition:background .12s" onmouseenter="this.style.background='rgba(255,255,255,.1)'" onmouseleave="this.style.background='transparent'" ontouchstart="this.style.background='rgba(255,255,255,.1)'" ontouchend="this.style.background='transparent'" onclick="roomNavTo('garage')"><span style="font-size:1.3rem;flex-shrink:0">🔧</span> Garage Workshop</button>
+  <button style="display:flex;align-items:center;gap:10px;padding:9px 12px;border-radius:13px;cursor:pointer;touch-action:manipulation;border:none;background:transparent;width:100%;text-align:left;color:#fff;font-family:'Fredoka One',cursive;font-size:.72rem;transition:background .12s" onmouseenter="this.style.background='rgba(255,255,255,.1)'" onmouseleave="this.style.background='transparent'" ontouchstart="this.style.background='rgba(255,255,255,.1)'" ontouchend="this.style.background='transparent'" onclick="roomNavTo('driveway')"><span style="font-size:1.3rem;flex-shrink:0">🚗</span> Driveway</button>
+  <button style="display:flex;align-items:center;gap:10px;padding:9px 12px;border-radius:13px;cursor:pointer;touch-action:manipulation;border:none;background:transparent;width:100%;text-align:left;color:#fff;font-family:'Fredoka One',cursive;font-size:.72rem;transition:background .12s" onmouseenter="this.style.background='rgba(255,255,255,.1)'" onmouseleave="this.style.background='transparent'" ontouchstart="this.style.background='rgba(255,255,255,.1)'" ontouchend="this.style.background='transparent'" onclick="roomNavTo('pond')"><span style="font-size:1.3rem;flex-shrink:0">🐘</span> The Pond</button>
+  <button style="display:flex;align-items:center;gap:10px;padding:9px 12px;border-radius:13px;cursor:pointer;touch-action:manipulation;border:none;background:transparent;width:100%;text-align:left;color:#fff;font-family:'Fredoka One',cursive;font-size:.72rem;transition:background .12s" onmouseenter="this.style.background='rgba(255,255,255,.1)'" onmouseleave="this.style.background='transparent'" ontouchstart="this.style.background='rgba(255,255,255,.1)'" ontouchend="this.style.background='transparent'" onclick="roomNavTo('mower')"><span style="font-size:1.3rem;flex-shrink:0">🚜</span> Lawn Mower</button>
+  <button style="display:flex;align-items:center;gap:10px;padding:9px 12px;border-radius:13px;cursor:pointer;touch-action:manipulation;border:none;background:transparent;width:100%;text-align:left;color:#fff;font-family:'Fredoka One',cursive;font-size:.72rem;transition:background .12s" onmouseenter="this.style.background='rgba(255,255,255,.1)'" onmouseleave="this.style.background='transparent'" ontouchstart="this.style.background='rgba(255,255,255,.1)'" ontouchend="this.style.background='transparent'" onclick="roomNavTo('construction')"><span style="font-size:1.3rem;flex-shrink:0">🏗️</span> Alphabet Construction</button>
+  <button style="display:flex;align-items:center;gap:10px;padding:9px 12px;border-radius:13px;cursor:pointer;touch-action:manipulation;border:none;background:transparent;width:100%;text-align:left;color:#fff;font-family:'Fredoka One',cursive;font-size:.72rem;transition:background .12s" onmouseenter="this.style.background='rgba(255,255,255,.1)'" onmouseleave="this.style.background='transparent'" ontouchstart="this.style.background='rgba(255,255,255,.1)'" ontouchend="this.style.background='transparent'" onclick="roomNavTo('music')"><span style="font-size:1.3rem;flex-shrink:0">🎵</span> Music Lab</button>
+  <div style="height:1px;background:rgba(255,255,255,.08);margin:2px 6px"></div>
+  <button style="display:flex;align-items:center;gap:10px;padding:9px 12px;border-radius:13px;cursor:pointer;touch-action:manipulation;border:none;background:transparent;width:100%;color:#fff;font-family:'Fredoka One',cursive;font-size:.72px;justify-content:center;transition:background .12s" onmouseenter="this.style.background='rgba(255,255,255,.1)'" onmouseleave="this.style.background='transparent'" onclick="CN.Room.goHome()">
+    <span style="font-size:1.3rem">🗺️</span> Back to Map
+  </button>
+</div>
+<script>
+var _rnOpen=false;
+function toggleRoomNav(){_rnOpen=!_rnOpen;var p=document.getElementById('room-nav-panel');p.style.display=_rnOpen?'flex':'none';document.getElementById('room-nav-btn').style.background=_rnOpen?'linear-gradient(135deg,#dc2626,#991b1b)':'linear-gradient(135deg,#7c3aed,#4c1d95)';}
+function roomNavTo(id){_rnOpen=false;document.getElementById('room-nav-panel').style.display='none';window.location.href='../'+id+'/index.html';}
+document.addEventListener('pointerdown',function(e){if(_rnOpen&&!e.target.closest('#room-nav-btn')&&!e.target.closest('#room-nav-panel')){_rnOpen=false;document.getElementById('room-nav-panel').style.display='none';}});
+</script>
+</body>
+</html>
