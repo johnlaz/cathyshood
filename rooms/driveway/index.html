@@ -1,0 +1,621 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<title>The Driveway — Cathy's Neighborhood</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Nunito:wght@400;700;800;900&family=Fredoka+One&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="../../shared/room-shell.css">
+<style>
+body {
+  background: none;
+  background-color: #1a1a2e;
+}
+#stage-overlay {
+  position: fixed; inset: 0; z-index: 0;
+  background: rgba(0,0,0,0.35);
+  pointer-events: none;
+}
+#room-hud, #greeting, #toybox-bar-wrap, #celebrate { z-index: 10; }
+#stage { display:flex; flex-direction:column; align-items:center; padding:10px 12px 6px; gap:10px; }
+
+.section-title { font-family:var(--font-title); font-size:clamp(.85rem,2.5vw,1rem); color:var(--gold); letter-spacing:.06em; text-transform:uppercase; text-align:center; }
+
+/* ── TOOL PICKER ── */
+.tool-pick {
+  display:flex; gap:10px; justify-content:center; flex-wrap:wrap;
+  width:100%; max-width:480px;
+  background:rgba(10,12,30,0.75); backdrop-filter:blur(10px);
+  border-radius:18px; padding:12px 14px;
+  border:1.5px solid rgba(255,255,255,.18);
+}
+.tool-card {
+  display:flex; flex-direction:column; align-items:center; gap:5px;
+  background:rgba(255,255,255,.08); border:2px solid rgba(255,255,255,.2);
+  border-radius:14px; padding:10px 14px; cursor:pointer;
+  transition:all .15s; min-width:80px;
+}
+.tool-card.active { background:rgba(255,255,255,.25); border-color:var(--gold); }
+.tool-card:active  { transform:scale(.92); }
+.tool-icon  { font-size:clamp(1.8rem,6vw,2.4rem); }
+.tool-label { font-family:var(--font-title); font-size:.72rem; color:rgba(255,255,255,.85); }
+
+/* ── CAR WASH CANVAS ── */
+.wash-wrap {
+  width:100%; max-width:480px;
+  background:rgba(10,12,30,0.75); backdrop-filter:blur(10px);
+  border-radius:18px; padding:12px;
+  border:1.5px solid rgba(255,255,255,.18);
+}
+.car-selector { display:flex; gap:8px; justify-content:center; margin-bottom:10px; }
+.car-btn {
+  font-size:clamp(1.6rem,5vw,2.4rem); padding:8px 12px;
+  background:rgba(255,255,255,.1); border:1.5px solid rgba(255,255,255,.2);
+  border-radius:12px; cursor:pointer; transition:all .15s;
+}
+.car-btn.selected { background:rgba(255,255,255,.25); border-color:#fff; transform:scale(1.1); }
+
+.car-stage {
+  position:relative; border-radius:14px; overflow:hidden;
+  background:linear-gradient(180deg,rgba(100,160,220,.5),rgba(180,210,240,.3));
+  margin-bottom:10px; cursor:crosshair;
+  user-select:none; -webkit-user-select:none;
+}
+.car-emoji-display {
+  display:flex; align-items:center; justify-content:center;
+  padding:16px; font-size:clamp(5rem,18vw,9rem);
+  filter:drop-shadow(0 4px 12px rgba(0,0,0,.4));
+  pointer-events:none; user-select:none;
+  line-height:1;
+}
+#dirtCanvas {
+  position:absolute; inset:0; width:100%; height:100%;
+  pointer-events:none;
+}
+/* Cursor changes based on tool */
+.car-stage.tool-hose   { cursor: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='32' height='32'%3E%3Ctext y='26' font-size='24'%3E🚿%3C/text%3E%3C/svg%3E") 8 24, crosshair; }
+.car-stage.tool-soap   { cursor: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='32' height='32'%3E%3Ctext y='26' font-size='24'%3E🧼%3C/text%3E%3C/svg%3E") 8 24, crosshair; }
+.car-stage.tool-brush  { cursor: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='32' height='32'%3E%3Ctext y='26' font-size='24'%3E🪣%3C/text%3E%3C/svg%3E") 8 24, crosshair; }
+
+/* Spray particles */
+.spray-particle {
+  position:fixed; pointer-events:none; z-index:800;
+  border-radius:50%; background:#64b5f6;
+  animation:sprayFly var(--d,.5s) ease-out forwards;
+}
+@keyframes sprayFly {
+  from { transform:translate(0,0) scale(1); opacity:.8; }
+  to   { transform:translate(var(--tx,10px),var(--ty,-20px)) scale(.1); opacity:0; }
+}
+
+/* Soap bubbles */
+.soap-bubble {
+  position:fixed; pointer-events:none; z-index:800;
+  border-radius:50%;
+  border:2px solid rgba(200,230,255,.8);
+  background:radial-gradient(circle at 30% 30%, rgba(255,255,255,.6), rgba(100,180,255,.2));
+  animation:bubbleFloat var(--d,.8s) ease-out forwards;
+}
+@keyframes bubbleFloat {
+  from { transform:translate(0,0) scale(1); opacity:.9; }
+  to   { transform:translate(var(--tx,0px),var(--ty,-60px)) scale(1.5); opacity:0; }
+}
+
+.wash-progress-wrap { display:flex; align-items:center; gap:8px; margin-bottom:10px; }
+.wash-progress-wrap span { font-family:var(--font-title); font-size:.8rem; color:rgba(255,255,255,.8); white-space:nowrap; }
+
+.step-hint {
+  font-family:var(--font-title); font-size:.8rem; color:var(--gold);
+  text-align:center; padding:6px;
+  animation:pulse 1.5s ease-in-out infinite;
+}
+@keyframes pulse { 0%,100%{opacity:1} 50%{opacity:.5} }
+
+/* ── EV CHARGER ── */
+.charger-wrap {
+  width:100%; max-width:480px;
+  background:rgba(10,12,30,0.75); backdrop-filter:blur(10px);
+  border-radius:18px; padding:12px 14px;
+  border:1.5px solid rgba(0,229,204,.2);
+}
+.ev-row { display:flex; align-items:center; gap:14px; margin-bottom:10px; }
+.ev-emoji-big { font-size:clamp(2.5rem,9vw,4rem); flex-shrink:0; }
+.ev-info { flex:1; }
+.ev-name  { font-family:var(--font-title); font-size:clamp(.9rem,2.5vw,1.1rem); color:#fff; }
+.battery-wrap { display:flex; align-items:center; gap:8px; margin-top:6px; }
+.battery-shell { flex:1; height:22px; border-radius:6px; background:rgba(0,0,0,.3); border:2px solid rgba(255,255,255,.3); position:relative; overflow:hidden; }
+.battery-tip   { width:6px; height:12px; background:rgba(255,255,255,.4); border-radius:0 3px 3px 0; }
+.battery-fill  { position:absolute; inset:2px; border-radius:3px; background:linear-gradient(90deg,#4caf50,#00e676); transition:width .5s ease; }
+.battery-fill.warning { background:linear-gradient(90deg,#ff9800,#ffd600); }
+.battery-fill.low     { background:linear-gradient(90deg,#f44336,#ff5722); }
+.battery-pct   { font-family:var(--font-title); font-size:.85rem; color:#fff; min-width:36px; }
+.charge-bolt   { font-size:1.5rem; display:none; animation:boltPulse 1s ease-in-out infinite alternate; }
+.charging .charge-bolt { display:block; }
+@keyframes boltPulse { from{opacity:.4;transform:scale(.9)} to{opacity:1;transform:scale(1.2)} }
+.plug-btn { font-family:var(--font-title); font-size:1rem; color:#fff; border:none; border-radius:14px; padding:12px 20px; cursor:pointer; width:100%; transition:all .2s; display:flex; align-items:center; justify-content:center; gap:8px; }
+.plug-btn.plugged   { background:linear-gradient(135deg,#1b5e20,#2e7d32); }
+.plug-btn.unplugged { background:linear-gradient(135deg,#01579b,#0277bd); }
+.plug-btn:active { transform:scale(.97); }
+
+/* Glass panels for illustrations */
+.workbench,.print-lab,.wash-station,.charger-station,.wash-wrap,.charger-wrap,.tool-pick {
+  background:rgba(10,12,30,0.72)!important;
+  backdrop-filter:blur(10px)!important;
+  border-color:rgba(255,255,255,.18)!important;
+}
+/* Touch action */
+button,.cn-btn,.tool-card,.car-btn,.plug-btn,[onclick] {
+  touch-action:manipulation; -webkit-tap-highlight-color:transparent; cursor:pointer;
+}
+
+/* ── HIDDEN JOHNNY ── */
+.johnny-hide {
+  position:fixed; z-index:50;
+  cursor:pointer; touch-action:manipulation;
+  -webkit-tap-highlight-color:transparent;
+  opacity:0; /* starts invisible — fades in after 8s */
+  transition:opacity 1s;
+  animation:none;
+}
+.johnny-peek {
+  font-size:clamp(1.2rem,4vw,1.8rem);
+  display:block;
+  animation:peekBob 2s ease-in-out infinite alternate;
+  filter:drop-shadow(0 2px 4px rgba(0,0,0,.4));
+}
+@keyframes peekBob { from{transform:translateY(0) rotate(-5deg)} to{transform:translateY(-6px) rotate(5deg)} }
+.johnny-pop {
+  position:fixed; z-index:800;
+  display:flex; flex-direction:column; align-items:center; gap:6px;
+  pointer-events:none;
+}
+.johnny-emoji { font-size:clamp(3rem,12vw,5rem); animation:johnnyJump .6s cubic-bezier(.34,1.5,.64,1) forwards; }
+@keyframes johnnyJump { from{transform:scale(0) rotate(-20deg)} to{transform:scale(1) rotate(0)} }
+.johnny-shout { font-family:var(--font-title); font-size:1rem; color:var(--gold); text-shadow:0 2px 8px rgba(0,0,0,.6); white-space:nowrap; }
+</style>
+</head>
+<body class="has-basket">
+<div id="bg-layer" style="background-image:url('bg.png')"></div>
+<div id="stage-overlay"></div>
+<div id="room-hud">
+  <div class="hud-inner">
+    <button id="back-btn" onclick="CN.Room.goBack()">← Back</button>
+    <div class="hud-room-name">⚡ <span>The Driveway</span></div>
+    <div class="hud-right">
+      <button class="hud-btn" id="audioBtn" onclick="toggleAudio()" title="Toggle sound">🔊</button>
+      <button class="hud-btn" onclick="CN.Room.goHome()">🏠 Map</button>
+    </div>
+  </div>
+</div>
+<div id="greeting"></div>
+
+<div id="stage">
+  <!-- Tool picker -->
+  <div class="section-title">🧹 Pick Your Cleaning Tool</div>
+  <div class="tool-pick" id="toolPick">
+    <div class="tool-card active" id="tool-soap"  onclick="selectTool('soap')">
+      <div class="tool-icon">🧼</div><div class="tool-label">1. Soap Up</div>
+    </div>
+    <div class="tool-card" id="tool-brush" onclick="selectTool('brush')">
+      <div class="tool-icon">🪣</div><div class="tool-label">2. Scrub</div>
+    </div>
+    <div class="tool-card" id="tool-hose"  onclick="selectTool('hose')">
+      <div class="tool-icon">🚿</div><div class="tool-label">3. Rinse</div>
+    </div>
+  </div>
+
+  <!-- Car wash -->
+  <div class="section-title">🚗 Wash the Cars!</div>
+  <div class="wash-wrap">
+    <div class="car-selector" id="carSelector"></div>
+    <div class="car-stage tool-hose" id="carStage">
+      <div class="car-emoji-display" id="carDisplay">🚗</div>
+      <canvas id="dirtCanvas"></canvas>
+    </div>
+    <div class="step-hint" id="stepHint">Step 1: Soap it up first! 🧼</div>
+    <div class="wash-progress-wrap">
+      <span>✨ Clean:</span>
+      <div class="cn-progress" style="flex:1"><div class="cn-progress-fill" id="washFill" style="width:0%"></div></div>
+      <span id="washPct">0%</span>
+    </div>
+    <button class="cn-btn" style="background:rgba(255,255,255,.15);width:100%;padding:11px;font-size:.9rem" onclick="dirtyUp()">🔄 Make it dirty again!</button>
+  </div>
+
+  <!-- EV Charger -->
+  <div class="section-title">⚡ EV Charging Station</div>
+  <div class="charger-wrap" id="chargerWrap">
+    <div class="ev-row">
+      <div class="ev-emoji-big" id="evEmoji">🚗</div>
+      <div class="ev-info">
+        <div class="ev-name" id="evName">Tesla Model X</div>
+        <div class="battery-wrap">
+          <div class="battery-shell"><div class="battery-fill" id="battFill" style="width:15%"></div></div>
+          <div class="battery-tip"></div>
+          <div class="battery-pct" id="battPct">15%</div>
+          <div class="charge-bolt">⚡</div>
+        </div>
+      </div>
+    </div>
+    <button class="plug-btn unplugged" id="plugBtn" onclick="toggleCharge()">
+      <span id="plugIcon">🔌</span><span id="plugLabel">Plug In to Charge!</span>
+    </button>
+  </div>
+</div>
+
+<!-- Basket Bar -->
+<div id="basket-bar-wrap">
+  <div class="basket-lbl">🧺</div>
+  <div id="basket-bar"></div>
+  <div id="coin-display">🪙 0</div>
+</div>
+<!-- Toybox Bar -->
+<div id="toybox-bar-wrap">
+  <div class="bar-row"><div class="tb-label">🧸</div><div id="toybox-bar"></div><div id="coin-display">🪙 0</div></div>
+  <div class="bar-row"><div class="tb-label">🧺</div><div id="basket-bar"></div></div>
+</div>
+<div id="celebrate">
+  <div class="celebrate-card">
+    <div class="celebrate-emoji" id="celEmoji">🚗</div>
+    <div class="celebrate-title" id="celTitle">Squeaky Clean!</div>
+    <div class="celebrate-msg"   id="celMsg">What a shine!</div>
+    <button class="cn-btn cn-btn-lg" style="background:linear-gradient(135deg,#0277bd,#01579b)" onclick="hideCelebrate()">Vroom! 🏎️</button>
+  </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/gsap@3.12.5/dist/gsap.min.js"></script>
+<script src="../../shared/cn-core.js"></script>
+<script>
+'use strict';
+const ROOM_ID = 'driveway';
+const CARS = [
+  { emoji:'🚗', name:'Tesla Model X', ev:true  },
+  { emoji:'🚙', name:'Hummer EV',     ev:true  },
+  { emoji:'🏎️', name:'Sports Car',   ev:false },
+];
+let D = { carIdx:0, battPct:15, charging:false, chargeTimer:null,
+          activeTool:'soap', soaped:false, scrubbed:false, washPct:0 };
+let CTX2, isDragging=false, W=0, H=0;
+
+CN.Room.init(ROOM_ID, async (saved) => {
+  if(saved){ D.battPct=saved.battPct||15; D.carIdx=saved.carIdx||0; }
+  buildCarSelector();
+  updateBattery();
+  await new Promise(r=>requestAnimationFrame(()=>requestAnimationFrame(r)));
+  initCanvas();
+  
+  // GSAP button press feedback on all interactive elements
+  document.querySelectorAll('.cn-btn,.pad,.tool-card,.car-btn,.seed,.garden-tool,.fix-tool,.tool-btn,.loop-btn,.voice-btn,.block,.key').forEach(el => {
+    el.addEventListener('pointerdown', () => CN.Anim && CN.Anim.btnPress(el));
+  });
+  selectTool('soap');
+  CN.Room.greet("Let's wash the cars! Start with the soap! 🧼");
+  CN.Audio.bgStart('driveway');
+});
+
+/* ── TOOL SELECTOR ── */
+function selectTool(t){
+  D.activeTool=t;
+  document.querySelectorAll('.tool-card').forEach(el=>el.classList.remove('active'));
+  document.getElementById('tool-'+t).classList.add('active');
+  const stage=document.getElementById('carStage');
+  stage.className='car-stage tool-'+t;
+  // Highlight active step
+  document.querySelectorAll('.tool-card').forEach((el,i)=>{ el.style.opacity = (i===0&&!D.soaped)||(i===1&&D.soaped&&!D.scrubbed)||(i===2&&D.scrubbed) ? '1':'0.5'; });
+  updateHint();
+  CN.FX.haptic('tap');
+  CN.Room.greet({hose:'🚿 Power hose selected! Rinse it off!',
+                 soap:'🧼 Soap selected! Scrub scrub scrub!',
+                 brush:'🪣 Bucket selected! Scrub time!'}[t]);
+}
+
+function updateHint(){
+  const el=document.getElementById('stepHint');
+  if(!D.soaped)           el.textContent='Step 1: Soap it up first! 🧼 — tap Soap';
+  else if(!D.scrubbed)    el.textContent='Step 2: Scrub it clean! 🪣 — tap Scrub';
+  else                    el.textContent='Step 3: Rinse it off! 🚿 — tap Rinse';
+}
+
+/* ── CAR SELECTOR ── */
+function buildCarSelector(){
+  const sel=document.getElementById('carSelector');
+  sel.innerHTML='';
+  CARS.forEach((c,i)=>{
+    const b=document.createElement('div');
+    b.className='car-btn'+(i===D.carIdx?' selected':'');
+    b.textContent=c.emoji;
+    b.onclick=()=>{
+      D.carIdx=i;
+      document.querySelectorAll('.car-btn').forEach(x=>x.classList.remove('selected'));
+      b.classList.add('selected');
+      document.getElementById('carDisplay').textContent=c.emoji;
+      document.getElementById('evEmoji').textContent=c.emoji;
+      document.getElementById('evName').textContent=c.name;
+      dirtyUp();
+    };
+    sel.appendChild(b);
+  });
+  document.getElementById('carDisplay').textContent=CARS[D.carIdx].emoji;
+}
+
+/* ── CANVAS INIT ── */
+function initCanvas(){
+  const canvas=document.getElementById('dirtCanvas');
+  const stage=document.getElementById('carStage');
+  const rect=stage.getBoundingClientRect();
+  W=Math.round(rect.width)||320;
+  H=Math.round(rect.height)||180;
+  canvas.width=W; canvas.height=H;
+  CTX2=canvas.getContext('2d');
+  layDirt();
+
+  stage.addEventListener('pointerdown', e=>{ isDragging=true; applyTool(e,stage); });
+  stage.addEventListener('pointermove', e=>{ if(isDragging) applyTool(e,stage); });
+  stage.addEventListener('pointerup',   ()=>isDragging=false);
+  stage.addEventListener('pointercancel',()=>isDragging=false);
+}
+
+function layDirt(){
+  if(!CTX2) return;
+  CTX2.clearRect(0,0,W,H);
+  // Brown mud splats
+  const mudColors=['rgba(90,55,20,.8)','rgba(70,40,15,.7)','rgba(110,70,30,.65)'];
+  for(let i=0;i<55;i++){
+    CTX2.fillStyle=mudColors[Math.floor(Math.random()*mudColors.length)];
+    CTX2.beginPath();
+    CTX2.ellipse(Math.random()*W,Math.random()*H,10+Math.random()*28,6+Math.random()*14,Math.random()*Math.PI,0,Math.PI*2);
+    CTX2.fill();
+  }
+  // Grime overlay
+  CTX2.fillStyle='rgba(40,25,10,.25)';
+  CTX2.fillRect(0,0,W,H);
+  D.washPct=0; D.soaped=false; D.scrubbed=false; D.washDone=false;
+  document.getElementById('washFill').style.width='0%';
+  document.getElementById('washPct').textContent='0%';
+  updateHint();
+}
+
+/* ── APPLY TOOL ── */
+function applyTool(e,stage){
+  if(!CTX2) return;
+  const rect=stage.getBoundingClientRect();
+  const scaleX=W/rect.width, scaleY=H/rect.height;
+  const x=(e.clientX-rect.left)*scaleX;
+  const y=(e.clientY-rect.top)*scaleY;
+  const t=D.activeTool;
+
+  if(t==='soap'){
+    // Soap: lather effect - white semi-transparent layer
+    CTX2.globalCompositeOperation='source-over';
+    CTX2.fillStyle='rgba(220,240,255,.18)';
+    CTX2.beginPath();
+    CTX2.arc(x,y,22,0,Math.PI*2);
+    CTX2.fill();
+    spawnBubbles(e.clientX,e.clientY,5);
+    CN.Audio.play('bubblePop');
+    if(!D.soaped){ D.soaped=true; updateHint(); CN.Room.greet('Great! Now scrub with the bucket! 🪣'); }
+
+  } else if(t==='brush'){
+    // Scrub: removes dirt more with circular motion texture
+    if(!D.soaped){ CN.Room.greet('Use soap first! 🧼'); return; }
+    CTX2.globalCompositeOperation='destination-out';
+    CTX2.beginPath();
+    CTX2.arc(x,y,18,0,Math.PI*2);
+    CTX2.fill();
+    // Add scrub lines
+    CTX2.globalCompositeOperation='source-over';
+    CTX2.strokeStyle='rgba(200,230,255,.15)';
+    CTX2.lineWidth=3;
+    for(let a=0;a<4;a++){
+      const ang=a*Math.PI/4;
+      CTX2.beginPath();
+      CTX2.moveTo(x+Math.cos(ang)*8,y+Math.sin(ang)*8);
+      CTX2.lineTo(x+Math.cos(ang+Math.PI)*8,y+Math.sin(ang+Math.PI)*8);
+      CTX2.stroke();
+    }
+    if(!D.scrubbed){ D.scrubbed=true; updateHint(); CN.Room.greet('Looking cleaner! Now rinse with the hose! 🚿'); }
+
+  } else {
+    // Hose: wide fast clear
+    if(!D.scrubbed){ CN.Room.greet('Soap and scrub first! 🧼🪣'); return; }
+    CTX2.globalCompositeOperation='destination-out';
+    CTX2.beginPath();
+    CTX2.arc(x,y,30,0,Math.PI*2);
+    CTX2.fill();
+    spawnSpray(e.clientX,e.clientY);
+    CN.Audio.play('waterSpray');
+  }
+  CTX2.globalCompositeOperation='source-over';
+  calcWash();
+  CN.FX.haptic('tap');
+}
+
+function spawnBubbles(cx,cy,n){
+  for(let i=0;i<n;i++){
+    const el=document.createElement('div');
+    el.className='soap-bubble';
+    const sz=8+Math.random()*14;
+    el.style.cssText=`left:${cx+Math.random()*40-20}px;top:${cy+Math.random()*20-10}px;width:${sz}px;height:${sz}px;
+      --tx:${(Math.random()*30-15).toFixed(0)}px;--ty:${(-30-Math.random()*40).toFixed(0)}px;
+      --d:${(.5+Math.random()*.6).toFixed(2)}s;animation-delay:${(Math.random()*.2).toFixed(2)}s;`;
+    document.body.appendChild(el);
+    setTimeout(()=>el.remove(),1100);
+  }
+}
+
+function spawnSpray(cx,cy){
+  for(let i=0;i<8;i++){
+    const el=document.createElement('div');
+    el.className='spray-particle';
+    const sz=4+Math.random()*6;
+    const ang=Math.random()*Math.PI*2;
+    const dist=20+Math.random()*40;
+    el.style.cssText=`left:${cx}px;top:${cy}px;width:${sz}px;height:${sz}px;
+      --tx:${(Math.cos(ang)*dist).toFixed(0)}px;--ty:${(Math.sin(ang)*dist-20).toFixed(0)}px;
+      --d:${(.3+Math.random()*.3).toFixed(2)}s;`;
+    document.body.appendChild(el);
+    setTimeout(()=>el.remove(),700);
+  }
+}
+
+function calcWash(){
+  const data=CTX2.getImageData(0,0,W,H).data;
+  let transparent=0;
+  for(let i=3;i<data.length;i+=8) if(data[i]<20) transparent++;
+  D.washPct=Math.min(100,Math.round(transparent/(data.length/8/4)*100*1.4));
+  document.getElementById('washFill').style.width=D.washPct+'%';
+  document.getElementById('washPct').textContent=D.washPct+'%';
+  if(D.washPct>=90&&!D.washDone){
+    D.washDone=true;
+    if(window.gsap) gsap.to(document.getElementById('carDisplay'),{filter:'brightness(1.4) saturate(1.3)',duration:.3,yoyo:true,repeat:3});
+    CN.FX.haptic('success');
+    (window.gsap ? CN.Anim.starBurst(window.innerWidth/2,window.innerHeight*.35,14) : CN.FX.stars(window.innerWidth/2,window.innerHeight*.35,14));
+    CN.Coins.add(5,'car_wash'); renderToyboxBar(); showCelebrate(CARS[D.carIdx].emoji,'Squeaky Clean! +5 🪙',`The ${CARS[D.carIdx].name} is sparkling! ✨`);
+    saveDriveway();
+  }
+}
+
+function dirtyUp(){ D.soaped=false; D.scrubbed=false; D.washDone=false; layDirt(); CN.Room.greet('Back to dirty! Time to wash again! 🚿'); }
+
+/* ── EV CHARGER ── */
+function toggleCharge(){
+  D.charging=!D.charging;
+  const wrap=document.getElementById('chargerWrap');
+  const btn=document.getElementById('plugBtn');
+  if(D.charging){
+    wrap.classList.add('charging');
+    if(window.gsap) gsap.fromTo(document.getElementById('evEmoji'),{scale:1},{scale:1.15,duration:.4,yoyo:true,repeat:1,ease:'power2.inOut'});
+    btn.className='plug-btn plugged';
+    document.getElementById('plugIcon').textContent='🔌';
+    document.getElementById('plugLabel').textContent='Charging... Unplug';
+    CN.Audio.play('chargeStart');
+    CN.Room.greet('Charging! Watch the battery fill! ⚡');
+    CN.FX.haptic('tap');
+    D.chargeTimer=setInterval(()=>{
+      D.battPct=Math.min(100,D.battPct+2);
+      updateBattery();
+      if(D.battPct>=100){
+        clearInterval(D.chargeTimer); D.charging=false;
+        wrap.classList.remove('charging');
+        btn.className='plug-btn unplugged';
+        document.getElementById('plugLabel').textContent='Fully Charged! 🎉';
+        CN.FX.haptic('success'); (window.gsap ? CN.Anim.confettiBurst(window.innerWidth/2,window.innerHeight*.3,25) : CN.FX.confetti(25));
+        CN.Coins.add(5,'car_charge'); renderToyboxBar(); showCelebrate('⚡','Fully Charged! +5 🪙','Ready to zoom! 🚗💨');
+        saveDriveway();
+      }
+    },350);
+  } else {
+    clearInterval(D.chargeTimer);
+    wrap.classList.remove('charging');
+    btn.className='plug-btn unplugged';
+    document.getElementById('plugIcon').textContent='🔌';
+    document.getElementById('plugLabel').textContent='Plug In to Charge!';
+    saveDriveway();
+  }
+}
+
+function updateBattery(){
+  const fill=document.getElementById('battFill');
+  const pct=document.getElementById('battPct');
+  fill.style.width=D.battPct+'%';
+  pct.textContent=D.battPct+'%';
+  fill.className='battery-fill'+(D.battPct<25?' low':D.battPct<50?' warning':'');
+}
+
+function showCelebrate(emoji,title,msg){
+  document.getElementById('celEmoji').textContent=emoji;
+  document.getElementById('celTitle').textContent=title;
+  document.getElementById('celMsg').textContent=msg;
+  CN.Audio.play('celebrate');
+  CN.addCoins(10).then(()=>CN.updateCoinDisplay());
+  document.getElementById('celebrate').classList.add('show');
+  if(window.gsap) CN.Anim.celebrateIn(document.querySelector('.celebrate-card'));
+  (window.gsap ? CN.Anim.confettiBurst(window.innerWidth/2,window.innerHeight*.3,28) : CN.FX.confetti(28));
+}
+function hideCelebrate() { const overlay = document.getElementById('celebrate'); const card  = document.querySelector('.celebrate-card'); if(window.gsap && card) {  CN.Anim.celebrateOut(card, overlay); } else {  overlay.classList.remove('show'); }}
+async function saveDriveway(){ await CN.Room.save(ROOM_ID,{battPct:D.battPct,carIdx:D.carIdx}); }
+// Stagger grid items on load
+document.addEventListener("DOMContentLoaded",()=>{setTimeout(()=>{const g=document.querySelector(".car-selector");if(g&&window.gsap)CN.Anim.staggerIn(g);},400);});
+</script>
+
+<!-- ══ HIDDEN JOHNNY ══ -->
+<div id="johnnyHide" class="johnny-hide" style="left:3%;bottom:25%" onclick="findJohnny()" title="Who's hiding?">
+  <span class="johnny-peek">👀</span>
+</div>
+<div id="johnnyPop" class="johnny-pop" style="display:none">
+  <span class="johnny-emoji">👦</span>
+  <div class="johnny-shout">Found me! 😄 (behind the car)</div>
+</div>
+
+<script>
+/* ══ HIDDEN JOHNNY ══ */
+let _johnnyFound = false;
+(function initJohnny(){
+  // Fade in after 8s so player has time to explore first
+  setTimeout(()=>{
+    const el=document.getElementById('johnnyHide');
+    if(el && !_johnnyFound) el.style.opacity='1';
+  }, 8000);
+})();
+
+function findJohnny(){
+  if(_johnnyFound) return;
+  _johnnyFound = true;
+  const hide=document.getElementById('johnnyHide');
+  const pop =document.getElementById('johnnyPop');
+  if(!hide||!pop) return;
+
+  hide.style.opacity='0';
+  hide.style.pointerEvents='none';
+
+  // Position pop where hide was
+  const rect=hide.getBoundingClientRect();
+  pop.style.cssText=`position:fixed;left:${rect.left}px;top:${rect.top-40}px;z-index:800;display:flex;flex-direction:column;align-items:center;gap:6px;pointer-events:none;`;
+  pop.style.display='flex';
+
+  CN.Audio.play('celebrate'); CN.FX.haptic('success');
+  CN.Coins.add(5,'found_johnny'); renderToyboxBar();
+  CN.Room.greet("You found Johnny! 👦 +5 🪙 Golden coins!");
+
+  // Burst stars from his position
+  CN.FX.stars(rect.left+rect.width/2, rect.top, 12, ['⭐','🌟','💫','✨','🎉','👦']);
+
+  if(window.gsap){
+    gsap.timeline()
+      .from(pop.querySelector('.johnny-emoji'),{scale:0,rotation:-20,duration:.5,ease:'back.out(3)'})
+      .from(pop.querySelector('.johnny-shout'),{y:10,opacity:0,duration:.3},'-=.2')
+      .to(pop,{y:-30,opacity:0,duration:.6,delay:2,ease:'power2.in',onComplete:()=>pop.style.display='none'});
+  } else {
+    setTimeout(()=>pop.style.display='none', 2500);
+  }
+}
+
+</script>
+
+<!-- Quick room nav -->
+<button id="room-nav-btn" onclick="toggleRoomNav()" title="Switch Room">🗺</button>
+<div id="room-nav-panel">
+  <div style="font-family:'Fredoka One',cursive;font-size:.58rem;color:rgba(255,255,255,.4);text-align:center;padding:4px 0 2px;letter-spacing:.06em;text-transform:uppercase">Jump To Room</div>
+  <button style="display:flex;align-items:center;gap:10px;padding:9px 12px;border-radius:13px;cursor:pointer;touch-action:manipulation;border:none;background:transparent;width:100%;text-align:left;color:#fff;font-family:'Fredoka One',cursive;font-size:.72rem;transition:background .12s" onmouseenter="this.style.background='rgba(255,255,255,.1)'" onmouseleave="this.style.background='transparent'" ontouchstart="this.style.background='rgba(255,255,255,.1)'" ontouchend="this.style.background='transparent'" onclick="roomNavTo('home')"><span style="font-size:1.3rem;flex-shrink:0">🏡</span> Cathy's Home</button>
+  <button style="display:flex;align-items:center;gap:10px;padding:9px 12px;border-radius:13px;cursor:pointer;touch-action:manipulation;border:none;background:transparent;width:100%;text-align:left;color:#fff;font-family:'Fredoka One',cursive;font-size:.72rem;transition:background .12s" onmouseenter="this.style.background='rgba(255,255,255,.1)'" onmouseleave="this.style.background='transparent'" ontouchstart="this.style.background='rgba(255,255,255,.1)'" ontouchend="this.style.background='transparent'" onclick="roomNavTo('kitchen')"><span style="font-size:1.3rem;flex-shrink:0">🍳</span> Little Chef's Kitchen</button>
+  <button style="display:flex;align-items:center;gap:10px;padding:9px 12px;border-radius:13px;cursor:pointer;touch-action:manipulation;border:none;background:transparent;width:100%;text-align:left;color:#fff;font-family:'Fredoka One',cursive;font-size:.72rem;transition:background .12s" onmouseenter="this.style.background='rgba(255,255,255,.1)'" onmouseleave="this.style.background='transparent'" ontouchstart="this.style.background='rgba(255,255,255,.1)'" ontouchend="this.style.background='transparent'" onclick="roomNavTo('salon')"><span style="font-size:1.3rem;flex-shrink:0">💅</span> Royal Salon</button>
+  <button style="display:flex;align-items:center;gap:10px;padding:9px 12px;border-radius:13px;cursor:pointer;touch-action:manipulation;border:none;background:transparent;width:100%;text-align:left;color:#fff;font-family:'Fredoka One',cursive;font-size:.72rem;transition:background .12s" onmouseenter="this.style.background='rgba(255,255,255,.1)'" onmouseleave="this.style.background='transparent'" ontouchstart="this.style.background='rgba(255,255,255,.1)'" ontouchend="this.style.background='transparent'" onclick="roomNavTo('garage')"><span style="font-size:1.3rem;flex-shrink:0">🔧</span> Garage Workshop</button>
+  <button style="display:flex;align-items:center;gap:10px;padding:9px 12px;border-radius:13px;cursor:pointer;touch-action:manipulation;border:none;background:transparent;width:100%;text-align:left;color:#fff;font-family:'Fredoka One',cursive;font-size:.72rem;transition:background .12s" onmouseenter="this.style.background='rgba(255,255,255,.1)'" onmouseleave="this.style.background='transparent'" ontouchstart="this.style.background='rgba(255,255,255,.1)'" ontouchend="this.style.background='transparent'" onclick="roomNavTo('pond')"><span style="font-size:1.3rem;flex-shrink:0">🐘</span> The Pond</button>
+  <button style="display:flex;align-items:center;gap:10px;padding:9px 12px;border-radius:13px;cursor:pointer;touch-action:manipulation;border:none;background:transparent;width:100%;text-align:left;color:#fff;font-family:'Fredoka One',cursive;font-size:.72rem;transition:background .12s" onmouseenter="this.style.background='rgba(255,255,255,.1)'" onmouseleave="this.style.background='transparent'" ontouchstart="this.style.background='rgba(255,255,255,.1)'" ontouchend="this.style.background='transparent'" onclick="roomNavTo('mower')"><span style="font-size:1.3rem;flex-shrink:0">🚜</span> Lawn Mower</button>
+  <button style="display:flex;align-items:center;gap:10px;padding:9px 12px;border-radius:13px;cursor:pointer;touch-action:manipulation;border:none;background:transparent;width:100%;text-align:left;color:#fff;font-family:'Fredoka One',cursive;font-size:.72rem;transition:background .12s" onmouseenter="this.style.background='rgba(255,255,255,.1)'" onmouseleave="this.style.background='transparent'" ontouchstart="this.style.background='rgba(255,255,255,.1)'" ontouchend="this.style.background='transparent'" onclick="roomNavTo('garden')"><span style="font-size:1.3rem;flex-shrink:0">🥕</span> The Garden</button>
+  <button style="display:flex;align-items:center;gap:10px;padding:9px 12px;border-radius:13px;cursor:pointer;touch-action:manipulation;border:none;background:transparent;width:100%;text-align:left;color:#fff;font-family:'Fredoka One',cursive;font-size:.72rem;transition:background .12s" onmouseenter="this.style.background='rgba(255,255,255,.1)'" onmouseleave="this.style.background='transparent'" ontouchstart="this.style.background='rgba(255,255,255,.1)'" ontouchend="this.style.background='transparent'" onclick="roomNavTo('construction')"><span style="font-size:1.3rem;flex-shrink:0">🏗️</span> Alphabet Construction</button>
+  <button style="display:flex;align-items:center;gap:10px;padding:9px 12px;border-radius:13px;cursor:pointer;touch-action:manipulation;border:none;background:transparent;width:100%;text-align:left;color:#fff;font-family:'Fredoka One',cursive;font-size:.72rem;transition:background .12s" onmouseenter="this.style.background='rgba(255,255,255,.1)'" onmouseleave="this.style.background='transparent'" ontouchstart="this.style.background='rgba(255,255,255,.1)'" ontouchend="this.style.background='transparent'" onclick="roomNavTo('music')"><span style="font-size:1.3rem;flex-shrink:0">🎵</span> Music Lab</button>
+  <div style="height:1px;background:rgba(255,255,255,.08);margin:2px 6px"></div>
+  <button style="display:flex;align-items:center;gap:10px;padding:9px 12px;border-radius:13px;cursor:pointer;touch-action:manipulation;border:none;background:transparent;width:100%;color:#fff;font-family:'Fredoka One',cursive;font-size:.72px;justify-content:center;transition:background .12s" onmouseenter="this.style.background='rgba(255,255,255,.1)'" onmouseleave="this.style.background='transparent'" onclick="CN.Room.goHome()">
+    <span style="font-size:1.3rem">🗺️</span> Back to Map
+  </button>
+</div>
+<script>
+var _rnOpen=false;
+function toggleRoomNav(){_rnOpen=!_rnOpen;var p=document.getElementById('room-nav-panel');p.style.display=_rnOpen?'flex':'none';document.getElementById('room-nav-btn').style.background=_rnOpen?'linear-gradient(135deg,#dc2626,#991b1b)':'linear-gradient(135deg,#7c3aed,#4c1d95)';}
+function roomNavTo(id){_rnOpen=false;document.getElementById('room-nav-panel').style.display='none';window.location.href='../'+id+'/index.html';}
+document.addEventListener('pointerdown',function(e){if(_rnOpen&&!e.target.closest('#room-nav-btn')&&!e.target.closest('#room-nav-panel')){_rnOpen=false;document.getElementById('room-nav-panel').style.display='none';}});
+</script>
+</body>
+</html>
