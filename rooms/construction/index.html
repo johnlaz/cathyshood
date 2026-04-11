@@ -1,0 +1,520 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<title>Alphabet Construction — Cathy's Neighborhood</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Nunito:wght@400;700;800;900&family=Fredoka+One&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="../../shared/room-shell.css">
+<style>
+body {
+  background: none;
+  background-color: #1a1a2e;
+  overflow: hidden;
+}
+#stage-overlay {
+  position: fixed; inset: 0; z-index: 0;
+  background: rgba(0,0,0,0.40);
+  pointer-events: none;
+}
+#stage {
+  display: flex; flex-direction: column; align-items: center;
+  padding: 10px 12px 6px; gap: 10px;
+}
+
+.section-title { font-family:var(--font-title); font-size:clamp(.85rem,2.5vw,1rem); color:var(--gold); letter-spacing:.06em; text-transform:uppercase; }
+
+/* ── WORD DISPLAY ── */
+.word-display {
+  width:100%; max-width:480px;
+  background:rgba(0,0,0,.25); border-radius:16px; padding:12px 14px;
+  border:2px solid rgba(255,255,255,.2);
+  text-align:center;
+}
+.word-target { font-family:var(--font-title); font-size:.8rem; color:rgba(255,255,255,.6); margin-bottom:6px; letter-spacing:.06em; }
+.word-slots {
+  display:flex; gap:6px; justify-content:center; flex-wrap:wrap; min-height:60px; align-items:center;
+}
+.word-slot {
+  width:clamp(40px,10vw,56px); height:clamp(40px,10vw,56px);
+  border-radius:10px; border:2px dashed rgba(255,255,255,.3);
+  display:flex; align-items:center; justify-content:center;
+  font-family:var(--font-title); font-size:clamp(1.2rem,4vw,1.8rem);
+  color:#fff; background:rgba(255,255,255,.08);
+  transition:all .2s;
+}
+.word-slot.filled { border-style:solid; border-color:rgba(255,255,255,.5); background:rgba(255,255,255,.18); }
+.word-slot.correct { border-color:#00e676; background:rgba(0,230,118,.15); color:#00e676; }
+.word-slot.wrong   { border-color:#ff5252; background:rgba(255,82,82,.15); animation:shake .3s ease; }
+@keyframes shake { 0%,100%{transform:translateX(0)} 25%{transform:translateX(-6px)} 75%{transform:translateX(6px)} }
+
+/* ── LETTER BLOCKS ── */
+.block-yard {
+  width:100%; max-width:480px;
+  background:rgba(0,0,0,.2); border-radius:16px; padding:12px;
+  border:1.5px solid rgba(255,255,255,.15);
+}
+.block-grid { display:flex; gap:7px; flex-wrap:wrap; justify-content:center; }
+.block {
+  width:clamp(40px,10vw,52px); height:clamp(40px,10vw,52px);
+  border-radius:10px; cursor:pointer;
+  display:flex; align-items:center; justify-content:center;
+  font-family:var(--font-title); font-size:clamp(1.1rem,3.5vw,1.5rem); color:#fff;
+  font-weight:900; border:2px solid rgba(255,255,255,.3);
+  box-shadow:0 4px 0 rgba(0,0,0,.4), 0 6px 12px rgba(0,0,0,.25);
+  transition:transform .1s, box-shadow .1s, filter .1s;
+  position:relative; overflow:hidden;
+}
+.block:active {
+  transform:translateY(3px) scale(.95);
+  box-shadow:0 1px 0 rgba(0,0,0,.4), 0 2px 6px rgba(0,0,0,.2);
+  filter:brightness(1.2);
+}
+.block.used { opacity:.35; pointer-events:none; }
+.block-shine {
+  position:absolute; top:0; left:-60%;
+  width:40%; height:100%;
+  background:linear-gradient(90deg,transparent,rgba(255,255,255,.25),transparent);
+  animation:blockShine 3s ease-in-out infinite;
+}
+@keyframes blockShine { 0%{left:-60%} 50%,100%{left:120%} }
+
+/* ── CHALLENGE CARDS ── */
+.challenge-card {
+  width:100%; max-width:480px;
+  background:rgba(0,0,0,.25); border-radius:16px; padding:12px 14px;
+  border:1.5px solid rgba(255,255,255,.15);
+  display:flex; align-items:center; gap:12px;
+}
+.challenge-img { font-size:clamp(2rem,7vw,3rem); flex-shrink:0; }
+.challenge-text { flex:1; }
+.challenge-name { font-family:var(--font-title); font-size:clamp(.9rem,2.5vw,1.1rem); color:#fff; }
+.challenge-hint { font-size:.75rem; color:rgba(255,255,255,.65); font-weight:700; margin-top:2px; }
+.next-btn {
+  font-family:var(--font-title); font-size:.8rem; color:#fff;
+  background:rgba(255,255,255,.15); border:1.5px solid rgba(255,255,255,.25);
+  border-radius:10px; padding:7px 12px; cursor:pointer; white-space:nowrap;
+  transition:all .15s;
+}
+.next-btn:active { transform:scale(.93); }
+
+/* Crane decoration */
+.crane { font-size:clamp(2rem,7vw,3.5rem); animation:craneSway 3s ease-in-out infinite alternate; pointer-events:none; }
+@keyframes craneSway { from{transform:rotate(-3deg)} to{transform:rotate(3deg)} }
+
+/* Stars/score */
+.score-row { display:flex; gap:4px; justify-content:center; }
+.score-star { font-size:1.4rem; transition:transform .3s; }
+.score-star.earned { animation:starEarn .5s cubic-bezier(.34,1.56,.64,1); }
+@keyframes starEarn { from{transform:scale(0) rotate(-20deg)} to{transform:scale(1) rotate(0)} }
+
+/* ── ILLUSTRATION BACKGROUND SUPPORT ── */
+
+.workbench, .print-lab, .wash-station, .charger-station,
+.mirror-frame, .mirror-wrap, .keyboard-wrap, .drum-grid,
+.loop-grid, .garden-bed, .controls, .dashboard, .lawn-wrap,
+.block-yard, .word-display, .food-shelf, .basket,
+.palette, .tools, .nail-row, .sticker-tray,
+.bpm-wrap, .tool-strip, .seed-row, .challenge-card,
+.stations, .station {
+  background: rgba(10, 12, 30, 0.72) !important;
+  backdrop-filter: blur(10px) !important;
+  -webkit-backdrop-filter: blur(10px) !important;
+  border-color: rgba(255,255,255,0.18) !important;
+}
+.station {
+  background: rgba(10, 12, 30, 0.75) !important;
+}
+.garden-bed {
+  background: linear-gradient(180deg, rgba(60,30,15,0.85), rgba(40,20,8,0.9)) !important;
+}
+.broken-item {
+  background: rgba(0,0,0,0.5) !important;
+}
+.car-wrap {
+  background: linear-gradient(180deg, rgba(100,160,220,0.6), rgba(200,230,255,0.4)) !important;
+}
+
+
+/* ── HIDDEN JOHNNY ── */
+.johnny-hide {
+  position:fixed; z-index:50;
+  cursor:pointer; touch-action:manipulation;
+  -webkit-tap-highlight-color:transparent;
+  opacity:0; /* starts invisible — fades in after 8s */
+  transition:opacity 1s;
+  animation:none;
+}
+.johnny-peek {
+  font-size:clamp(1.2rem,4vw,1.8rem);
+  display:block;
+  animation:peekBob 2s ease-in-out infinite alternate;
+  filter:drop-shadow(0 2px 4px rgba(0,0,0,.4));
+}
+@keyframes peekBob { from{transform:translateY(0) rotate(-5deg)} to{transform:translateY(-6px) rotate(5deg)} }
+.johnny-pop {
+  position:fixed; z-index:800;
+  display:flex; flex-direction:column; align-items:center; gap:6px;
+  pointer-events:none;
+}
+.johnny-emoji { font-size:clamp(3rem,12vw,5rem); animation:johnnyJump .6s cubic-bezier(.34,1.5,.64,1) forwards; }
+@keyframes johnnyJump { from{transform:scale(0) rotate(-20deg)} to{transform:scale(1) rotate(0)} }
+.johnny-shout { font-family:var(--font-title); font-size:1rem; color:var(--gold); text-shadow:0 2px 8px rgba(0,0,0,.6); white-space:nowrap; }
+</style>
+</head>
+<body class="has-basket">
+<div id="bg-layer" style="background-image:url('bg.png')"></div>
+<div id="room-hud">
+  <div class="hud-inner">
+    <button id="back-btn" onclick="CN.Room.goBack()">← Back</button>
+    <div class="hud-room-name">🏗️ <span>Alphabet Construction</span></div>
+    <div class="hud-right">
+      <button class="hud-btn" id="audioBtn" onclick="toggleAudio()" title="Toggle sound">🔊</button>
+      <button class="hud-btn" onclick="CN.Room.goHome()">🏠 Map</button>
+    </div>
+  </div>
+</div>
+<div id="greeting"></div>
+
+<div id="stage">
+  <!-- ── HOTSPOT SCENE ── -->
+  <div class="hs-scene" id="hsScene">
+    <img src="bg.png" class="scene-bg" alt="Alphabet Construction">
+    <div id="hs-layer"></div>
+  </div>
+  <div style="font-family:var(--font-title);font-size:.75rem;color:rgba(255,255,255,.65);text-align:center;padding:2px 0">
+    👆 Tap objects to play!
+  </div>
+  <!-- Activities scroll below scene -->
+  <!-- Crane + score -->
+  <div style="display:flex;align-items:center;justify-content:space-between;width:100%;max-width:480px">
+    <div class="crane">🏗️</div>
+    <div class="score-row" id="scoreRow"></div>
+    <div class="crane" style="transform:scaleX(-1)">🏗️</div>
+  </div>
+
+  <!-- Challenge -->
+  <div class="section-title">📋 Spell the Word!</div>
+  <div class="challenge-card" id="challengeCard"></div>
+
+  <!-- Word slots -->
+  <div class="word-display">
+    <div class="word-target" id="wordTarget">Tap the letters in order ↓</div>
+    <div class="word-slots" id="wordSlots"></div>
+  </div>
+
+  <!-- Letter blocks -->
+  <div class="section-title">🧱 Letter Blocks</div>
+  <div class="block-yard">
+    <div class="block-grid" id="blockGrid"></div>
+  </div>
+
+  <!-- Action row -->
+  <div style="display:flex;gap:10px;width:100%;max-width:480px;justify-content:center">
+    <button class="cn-btn" style="background:rgba(0,0,0,.3);padding:10px 18px;font-size:.9rem" onclick="clearWord()">↩ Clear</button>
+    <button class="cn-btn" style="background:linear-gradient(135deg,#f57f17,#e65100);padding:10px 18px;font-size:.9rem" onclick="checkWord()">✅ Check!</button>
+    <button class="cn-btn" style="background:rgba(0,0,0,.3);padding:10px 18px;font-size:.9rem" onclick="nextWord()">→ Next</button>
+  </div>
+</div>
+
+<!-- Basket Bar -->
+<div id="basket-bar-wrap">
+  <div class="basket-lbl">🧺</div>
+  <div id="basket-bar"></div>
+  <div id="coin-display">🪙 0</div>
+</div>
+<!-- Toybox Bar -->
+<div id="toybox-bar-wrap">
+  <div class="bar-row"><div class="tb-label">🧸</div><div id="toybox-bar"></div><div id="coin-display">🪙 0</div></div>
+  <div class="bar-row"><div class="tb-label">🧺</div><div id="basket-bar"></div></div>
+</div>
+<div id="celebrate">
+  <div class="celebrate-card">
+    <div class="celebrate-emoji" id="celEmoji">🏗️</div>
+    <div class="celebrate-title" id="celTitle">Correct!</div>
+    <div class="celebrate-msg" id="celMsg">You spelled it!</div>
+    <button class="cn-btn cn-btn-lg" style="background:linear-gradient(135deg,#f57f17,#e65100)" onclick="hideCelebrate();nextWord()">Next Word! →</button>
+  </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/gsap@3.12.5/dist/gsap.min.js"></script>
+<script src="../../shared/cn-core.js"></script>
+<script>
+'use strict';
+const ROOM_ID = 'construction';
+
+const WORDS = [
+  { word:'CAT',  emoji:'🐱', hint:'A furry pet that meows' },
+  { word:'DOG',  emoji:'🐶', hint:'Man\'s best friend' },
+  { word:'SUN',  emoji:'☀️', hint:'It shines in the sky' },
+  { word:'BUS',  emoji:'🚌', hint:'You ride it to school' },
+  { word:'HAT',  emoji:'🎩', hint:'You wear it on your head' },
+  { word:'CAR',  emoji:'🚗', hint:'Daddy drives one' },
+  { word:'MAP',  emoji:'🗺️', hint:'Shows you where to go' },
+  { word:'HEN',  emoji:'🐔', hint:'A farm bird that lays eggs' },
+  { word:'PIG',  emoji:'🐷', hint:'A pink farm animal' },
+  { word:'LOG',  emoji:'🪵', hint:'A piece of wood' },
+];
+
+const COLORS = ['#e53935','#f57c00','#fdd835','#43a047','#1e88e5','#8e24aa','#00897b','#d81b60'];
+const LETTERS = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ'.split('');
+
+let C = { wordIdx:0, typed:[], score:0, total:0 };
+
+CN.Room.init(ROOM_ID, async (saved) => {
+  if(saved){ C.wordIdx=saved.wordIdx||0; C.score=saved.score||0; }
+  buildScore();
+  buildChallenge();
+  buildBlocks();
+  
+  // GSAP button press feedback on all interactive elements
+  document.querySelectorAll('.cn-btn,.pad,.tool-card,.car-btn,.seed,.garden-tool,.fix-tool,.tool-btn,.loop-btn,.voice-btn,.block,.key').forEach(el => {
+    el.addEventListener('pointerdown', () => CN.Anim && CN.Anim.btnPress(el));
+  });
+  CN.Room.greet("Spell the words with the letter blocks! 🅰️🧱");
+  CN.Audio.bgStart('construction');
+  setTimeout(()=>initRoomHotspots(),300);
+});
+
+function buildScore(){
+  const row=document.getElementById('scoreRow');
+  row.innerHTML='';
+  for(let i=0;i<5;i++){
+    const s=document.createElement('div');
+    s.className='score-star'+(i<C.score?' earned':'');
+    s.textContent=i<C.score?'⭐':'☆';
+    row.appendChild(s);
+  }
+}
+
+function buildChallenge(){
+  const w=WORDS[C.wordIdx%WORDS.length];
+  document.getElementById('challengeCard').innerHTML=`
+    <div class="challenge-img">${w.emoji}</div>
+    <div class="challenge-text">
+      <div class="challenge-name">${w.hint}</div>
+      <div class="challenge-hint">${w.word.length} letters</div>
+    </div>
+    <button class="next-btn" onclick="nextWord()">Skip →</button>
+  `;
+  document.getElementById('wordTarget').textContent=`Spell: ${'_ '.repeat(w.word.length).trim()}`;
+  C.typed=[];
+  renderSlots();
+}
+
+function renderSlots(){
+  const w=WORDS[C.wordIdx%WORDS.length];
+  const slots=document.getElementById('wordSlots');
+  slots.innerHTML='';
+  for(let i=0;i<w.word.length;i++){
+    const s=document.createElement('div');
+    s.className='word-slot'+(i<C.typed.length?' filled':'');
+    s.textContent=C.typed[i]||'';
+    slots.appendChild(s);
+  }
+}
+
+function buildBlocks(){
+  const grid=document.getElementById('blockGrid');
+  grid.innerHTML='';
+  LETTERS.forEach((letter,i)=>{
+    const b=document.createElement('div');
+    b.className='block';
+    b.id='block_'+letter;
+    b.style.background=`linear-gradient(145deg,${COLORS[i%COLORS.length]},${COLORS[(i+3)%COLORS.length]}99)`;
+    b.innerHTML=`${letter}<div class="block-shine"></div>`;
+    b.addEventListener('pointerdown', ()=>tapLetter(letter,b));
+    grid.appendChild(b);
+  });
+}
+
+function tapLetter(letter,el){
+  const w=WORDS[C.wordIdx%WORDS.length];
+  if(C.typed.length>=w.word.length) return;
+  C.typed.push(letter);
+  el.classList.add('used');
+  renderSlots();
+  // Animate the newly filled slot
+  if(window.gsap){
+    const slots = document.querySelectorAll('.word-slot.filled');
+    const last  = slots[slots.length-1];
+    if(last) gsap.fromTo(last,{scale:0,rotation:-15},{scale:1,rotation:0,duration:.35,ease:'back.out(3)'});
+  }
+  CN.FX.haptic('tap');
+
+  // Spawnfloat
+  const rect=el.getBoundingClientRect();
+  const floater=document.createElement('div');
+  floater.style.cssText=`position:fixed;left:${rect.left+rect.width/2}px;top:${rect.top}px;font-family:var(--font-title);font-size:1.3rem;color:#fff;pointer-events:none;z-index:800;animation:noteRise .8s ease-out forwards;--tx:0px;--rot:0deg;`;
+  floater.textContent=letter;
+  document.body.appendChild(floater);
+  setTimeout(()=>floater.remove(),900);
+
+  if(C.typed.length===w.word.length) setTimeout(checkWord,300);
+}
+
+function checkWord(){
+  const w=WORDS[C.wordIdx%WORDS.length];
+  const typed=C.typed.join('');
+  const slots=document.querySelectorAll('.word-slot');
+
+  if(typed===w.word){
+    slots.forEach((s,i)=>{
+    s.classList.add('correct');
+    if(window.gsap) gsap.fromTo(s,{scale:.8},{scale:1.2,duration:.2,delay:i*.08,ease:'power2.out',yoyo:true,repeat:1,onComplete:()=>gsap.to(s,{scale:1,duration:.15})});
+  });
+    C.score=Math.min(5,C.score+1); C.total++;
+    buildScore();
+    CN.FX.haptic('success');
+    (window.gsap ? CN.Anim.starBurst(window.innerWidth/2,window.innerHeight*.4,12) : CN.FX.stars(window.innerWidth/2,window.innerHeight*.4,12));
+    CN.Coins.add(3,'construction_word'); renderToyboxBar();
+    showCelebrate(w.emoji,'Correct! 🎉',`"${w.word}" +3 🪙 Well done! 🌟`);
+    saveConstruction();
+  } else {
+    slots.forEach(s=>{
+    s.classList.add('wrong');
+    if(window.gsap) CN.Anim.shake(s);
+  });
+    setTimeout(()=>{ slots.forEach(s=>s.classList.remove('wrong')); clearWord(); },800);
+    CN.Audio.play('wordWrong');
+    CN.FX.haptic('error');
+    CN.Room.greet(`Not quite! Try again! The answer is ${w.word.length} letters 🤔`);
+  }
+}
+
+function clearWord(){
+  C.typed=[];
+  document.querySelectorAll('.block').forEach(b=>b.classList.remove('used'));
+  renderSlots();
+}
+
+function nextWord(){
+  C.wordIdx=(C.wordIdx+1)%WORDS.length;
+  clearWord();
+  buildChallenge();
+  CN.Room.greet(`Next word! ${WORDS[C.wordIdx%WORDS.length].hint} 🧱`);
+  saveConstruction();
+}
+
+function showCelebrate(emoji,title,msg){ document.getElementById('celEmoji').textContent=emoji; document.getElementById('celTitle').textContent=title; document.getElementById('celMsg').textContent=msg; CN.Audio.play('celebrate');
+  CN.addCoins(10).then(()=>CN.updateCoinDisplay());
+  document.getElementById('celebrate').classList.add('show');
+  if(window.gsap) CN.Anim.celebrateIn(document.querySelector('.celebrate-card')); (window.gsap ? CN.Anim.confettiBurst(window.innerWidth/2,window.innerHeight*.3,30) : CN.FX.confetti(30)); }
+function hideCelebrate() { const overlay = document.getElementById('celebrate'); const card  = document.querySelector('.celebrate-card'); if(window.gsap && card) {  CN.Anim.celebrateOut(card, overlay); } else {  overlay.classList.remove('show'); }}
+
+async function saveConstruction(){
+  await CN.Room.save(ROOM_ID,{ wordIdx:C.wordIdx, score:C.score });
+}
+
+// Add noteRise keyframe if not present
+const s=document.createElement('style');
+s.textContent='@keyframes noteRise{from{transform:translate(0,0);opacity:1}to{transform:translate(0,-60px);opacity:0}}';
+document.head.appendChild(s);
+// Stagger grid items on load
+document.addEventListener("DOMContentLoaded",()=>{setTimeout(()=>{const g=document.querySelector(".block-grid");if(g&&window.gsap)CN.Anim.staggerIn(g);},400);});
+/* ── ROOM HOTSPOTS ── */
+const ROOM_HS_CONSTRUCTION = [{"id": "blocks", "emoji": "🧱", "label": "Letter Blocks", "cx": 50, "cy": 65, "rx": 35, "ry": 22}, {"id": "crane", "emoji": "🏗️", "label": "Crane", "cx": 80, "cy": 35, "rx": 14, "ry": 22}, {"id": "scaffold", "emoji": "🏗️", "label": "Build Zone", "cx": 18, "cy": 50, "rx": 12, "ry": 25}];
+
+function initRoomHotspots(){
+  CN.Hotspots.init('construction', ROOM_HS_CONSTRUCTION, openRoomPanel);
+}
+
+function openRoomPanel(id){
+  // Scroll to the matching activity section
+  const mapping = { 'blocks': 'blocksActivity', 'crane': 'craneActivity', 'scaffold': 'scaffoldActivity' };
+  const targetId = mapping[id] || id + 'Activity';
+  const el = document.getElementById(targetId) || document.querySelector('[data-activity="'+id+'"]');
+  if(el){
+    el.scrollIntoView({behavior:'smooth', block:'start'});
+    if(window.gsap) gsap.fromTo(el,{scale:.97,opacity:.7},{scale:1,opacity:1,duration:.35,ease:'back.out(2)'});
+    CN.Hotspots.highlight(id);
+    CN.Room.greet('Tap to play! 🎮');
+  } else {
+    CN.Room.greet('Tap objects in the room to play! 👆');
+  }
+}
+
+</script>
+
+<!-- ══ HIDDEN JOHNNY ══ -->
+<div id="johnnyHide" class="johnny-hide" style="left:3%;top:35%" onclick="findJohnny()" title="Who's hiding?">
+  <span class="johnny-peek">👀</span>
+</div>
+<div id="johnnyPop" class="johnny-pop" style="display:none">
+  <span class="johnny-emoji">👦</span>
+  <div class="johnny-shout">Found me! 😄 (under the hard hat)</div>
+</div>
+
+<script>
+/* ══ HIDDEN JOHNNY ══ */
+let _johnnyFound = false;
+(function initJohnny(){
+  // Fade in after 8s so player has time to explore first
+  setTimeout(()=>{
+    const el=document.getElementById('johnnyHide');
+    if(el && !_johnnyFound) el.style.opacity='1';
+  }, 8000);
+})();
+
+function findJohnny(){
+  if(_johnnyFound) return;
+  _johnnyFound = true;
+  const hide=document.getElementById('johnnyHide');
+  const pop =document.getElementById('johnnyPop');
+  if(!hide||!pop) return;
+
+  hide.style.opacity='0';
+  hide.style.pointerEvents='none';
+
+  // Position pop where hide was
+  const rect=hide.getBoundingClientRect();
+  pop.style.cssText=`position:fixed;left:${rect.left}px;top:${rect.top-40}px;z-index:800;display:flex;flex-direction:column;align-items:center;gap:6px;pointer-events:none;`;
+  pop.style.display='flex';
+
+  CN.Audio.play('celebrate'); CN.FX.haptic('success');
+  CN.Coins.add(5,'found_johnny'); renderToyboxBar();
+  CN.Room.greet("You found Johnny! 👦 +5 🪙 Golden coins!");
+
+  // Burst stars from his position
+  CN.FX.stars(rect.left+rect.width/2, rect.top, 12, ['⭐','🌟','💫','✨','🎉','👦']);
+
+  if(window.gsap){
+    gsap.timeline()
+      .from(pop.querySelector('.johnny-emoji'),{scale:0,rotation:-20,duration:.5,ease:'back.out(3)'})
+      .from(pop.querySelector('.johnny-shout'),{y:10,opacity:0,duration:.3},'-=.2')
+      .to(pop,{y:-30,opacity:0,duration:.6,delay:2,ease:'power2.in',onComplete:()=>pop.style.display='none'});
+  } else {
+    setTimeout(()=>pop.style.display='none', 2500);
+  }
+}
+
+</script>
+
+<!-- Quick room nav -->
+<button id="room-nav-btn" onclick="toggleRoomNav()" title="Switch Room">🗺</button>
+<div id="room-nav-panel">
+  <div style="font-family:'Fredoka One',cursive;font-size:.58rem;color:rgba(255,255,255,.4);text-align:center;padding:4px 0 2px;letter-spacing:.06em;text-transform:uppercase">Jump To Room</div>
+  <button style="display:flex;align-items:center;gap:10px;padding:9px 12px;border-radius:13px;cursor:pointer;touch-action:manipulation;border:none;background:transparent;width:100%;text-align:left;color:#fff;font-family:'Fredoka One',cursive;font-size:.72rem;transition:background .12s" onmouseenter="this.style.background='rgba(255,255,255,.1)'" onmouseleave="this.style.background='transparent'" ontouchstart="this.style.background='rgba(255,255,255,.1)'" ontouchend="this.style.background='transparent'" onclick="roomNavTo('home')"><span style="font-size:1.3rem;flex-shrink:0">🏡</span> Cathy's Home</button>
+  <button style="display:flex;align-items:center;gap:10px;padding:9px 12px;border-radius:13px;cursor:pointer;touch-action:manipulation;border:none;background:transparent;width:100%;text-align:left;color:#fff;font-family:'Fredoka One',cursive;font-size:.72rem;transition:background .12s" onmouseenter="this.style.background='rgba(255,255,255,.1)'" onmouseleave="this.style.background='transparent'" ontouchstart="this.style.background='rgba(255,255,255,.1)'" ontouchend="this.style.background='transparent'" onclick="roomNavTo('kitchen')"><span style="font-size:1.3rem;flex-shrink:0">🍳</span> Little Chef's Kitchen</button>
+  <button style="display:flex;align-items:center;gap:10px;padding:9px 12px;border-radius:13px;cursor:pointer;touch-action:manipulation;border:none;background:transparent;width:100%;text-align:left;color:#fff;font-family:'Fredoka One',cursive;font-size:.72rem;transition:background .12s" onmouseenter="this.style.background='rgba(255,255,255,.1)'" onmouseleave="this.style.background='transparent'" ontouchstart="this.style.background='rgba(255,255,255,.1)'" ontouchend="this.style.background='transparent'" onclick="roomNavTo('salon')"><span style="font-size:1.3rem;flex-shrink:0">💅</span> Royal Salon</button>
+  <button style="display:flex;align-items:center;gap:10px;padding:9px 12px;border-radius:13px;cursor:pointer;touch-action:manipulation;border:none;background:transparent;width:100%;text-align:left;color:#fff;font-family:'Fredoka One',cursive;font-size:.72rem;transition:background .12s" onmouseenter="this.style.background='rgba(255,255,255,.1)'" onmouseleave="this.style.background='transparent'" ontouchstart="this.style.background='rgba(255,255,255,.1)'" ontouchend="this.style.background='transparent'" onclick="roomNavTo('garage')"><span style="font-size:1.3rem;flex-shrink:0">🔧</span> Garage Workshop</button>
+  <button style="display:flex;align-items:center;gap:10px;padding:9px 12px;border-radius:13px;cursor:pointer;touch-action:manipulation;border:none;background:transparent;width:100%;text-align:left;color:#fff;font-family:'Fredoka One',cursive;font-size:.72rem;transition:background .12s" onmouseenter="this.style.background='rgba(255,255,255,.1)'" onmouseleave="this.style.background='transparent'" ontouchstart="this.style.background='rgba(255,255,255,.1)'" ontouchend="this.style.background='transparent'" onclick="roomNavTo('driveway')"><span style="font-size:1.3rem;flex-shrink:0">🚗</span> Driveway</button>
+  <button style="display:flex;align-items:center;gap:10px;padding:9px 12px;border-radius:13px;cursor:pointer;touch-action:manipulation;border:none;background:transparent;width:100%;text-align:left;color:#fff;font-family:'Fredoka One',cursive;font-size:.72rem;transition:background .12s" onmouseenter="this.style.background='rgba(255,255,255,.1)'" onmouseleave="this.style.background='transparent'" ontouchstart="this.style.background='rgba(255,255,255,.1)'" ontouchend="this.style.background='transparent'" onclick="roomNavTo('pond')"><span style="font-size:1.3rem;flex-shrink:0">🐘</span> The Pond</button>
+  <button style="display:flex;align-items:center;gap:10px;padding:9px 12px;border-radius:13px;cursor:pointer;touch-action:manipulation;border:none;background:transparent;width:100%;text-align:left;color:#fff;font-family:'Fredoka One',cursive;font-size:.72rem;transition:background .12s" onmouseenter="this.style.background='rgba(255,255,255,.1)'" onmouseleave="this.style.background='transparent'" ontouchstart="this.style.background='rgba(255,255,255,.1)'" ontouchend="this.style.background='transparent'" onclick="roomNavTo('mower')"><span style="font-size:1.3rem;flex-shrink:0">🚜</span> Lawn Mower</button>
+  <button style="display:flex;align-items:center;gap:10px;padding:9px 12px;border-radius:13px;cursor:pointer;touch-action:manipulation;border:none;background:transparent;width:100%;text-align:left;color:#fff;font-family:'Fredoka One',cursive;font-size:.72rem;transition:background .12s" onmouseenter="this.style.background='rgba(255,255,255,.1)'" onmouseleave="this.style.background='transparent'" ontouchstart="this.style.background='rgba(255,255,255,.1)'" ontouchend="this.style.background='transparent'" onclick="roomNavTo('garden')"><span style="font-size:1.3rem;flex-shrink:0">🥕</span> The Garden</button>
+  <button style="display:flex;align-items:center;gap:10px;padding:9px 12px;border-radius:13px;cursor:pointer;touch-action:manipulation;border:none;background:transparent;width:100%;text-align:left;color:#fff;font-family:'Fredoka One',cursive;font-size:.72rem;transition:background .12s" onmouseenter="this.style.background='rgba(255,255,255,.1)'" onmouseleave="this.style.background='transparent'" ontouchstart="this.style.background='rgba(255,255,255,.1)'" ontouchend="this.style.background='transparent'" onclick="roomNavTo('music')"><span style="font-size:1.3rem;flex-shrink:0">🎵</span> Music Lab</button>
+  <div style="height:1px;background:rgba(255,255,255,.08);margin:2px 6px"></div>
+  <button style="display:flex;align-items:center;gap:10px;padding:9px 12px;border-radius:13px;cursor:pointer;touch-action:manipulation;border:none;background:transparent;width:100%;color:#fff;font-family:'Fredoka One',cursive;font-size:.72px;justify-content:center;transition:background .12s" onmouseenter="this.style.background='rgba(255,255,255,.1)'" onmouseleave="this.style.background='transparent'" onclick="CN.Room.goHome()">
+    <span style="font-size:1.3rem">🗺️</span> Back to Map
+  </button>
+</div>
+<script>
+var _rnOpen=false;
+function toggleRoomNav(){_rnOpen=!_rnOpen;var p=document.getElementById('room-nav-panel');p.style.display=_rnOpen?'flex':'none';document.getElementById('room-nav-btn').style.background=_rnOpen?'linear-gradient(135deg,#dc2626,#991b1b)':'linear-gradient(135deg,#7c3aed,#4c1d95)';}
+function roomNavTo(id){_rnOpen=false;document.getElementById('room-nav-panel').style.display='none';window.location.href='../'+id+'/index.html';}
+document.addEventListener('pointerdown',function(e){if(_rnOpen&&!e.target.closest('#room-nav-btn')&&!e.target.closest('#room-nav-panel')){_rnOpen=false;document.getElementById('room-nav-panel').style.display='none';}});
+</script>
+</body>
+</html>
