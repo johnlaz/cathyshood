@@ -1,0 +1,546 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<title>Cub Cadet ZT1 50 — Cathy's Neighborhood</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Nunito:wght@400;700;800;900&family=Fredoka+One&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="../../shared/room-shell.css">
+<style>
+body { background: none; background-color:#2e7d32; }
+#stage-overlay { position:fixed;inset:0;z-index:0;background:rgba(0,0,0,0.3);pointer-events:none; }
+#room-hud,#greeting,#toybox-bar-wrap,#celebrate { z-index:10; }
+#stage { display:flex; flex-direction:column; align-items:center; padding:10px 12px 6px; gap:10px; }
+
+.section-title { font-family:var(--font-title);font-size:clamp(.85rem,2.5vw,1rem);color:var(--gold);letter-spacing:.06em;text-transform:uppercase;text-align:center; }
+.glass { background:rgba(10,12,30,.75);backdrop-filter:blur(10px);border-radius:18px;border:1.5px solid rgba(255,255,255,.18); }
+
+/* ── LAWN CANVAS WRAPPER ── */
+.lawn-outer {
+  width:100%; max-width:520px;
+  position:relative;
+}
+.lawn-wrap {
+  width:100%;
+  border-radius:16px; overflow:hidden;
+  border:4px solid #2e7d32;
+  box-shadow:0 8px 28px rgba(0,0,0,.5);
+  position:relative;
+  background:#388e3c;  /* fallback green while canvas loads */
+  cursor:crosshair;
+  touch-action:none;
+}
+#lawnCanvas {
+  display:block; width:100%;
+  /* height set by JS */
+}
+
+/* Mower SVG overlay - rides on the canvas */
+#mowerEl {
+  position:absolute;
+  pointer-events:none;
+  transform:translate(-50%,-65%);
+  transition:none; /* GSAP handles movement */
+  z-index:3;
+  filter:drop-shadow(0 6px 16px rgba(0,0,0,.7));
+  width:clamp(70px,20vw,110px);
+}
+
+/* Clippings badge */
+.clippings-badge {
+  position:absolute; top:10px; left:10px; z-index:4;
+  background:rgba(0,0,0,.65); backdrop-filter:blur(6px);
+  border:1px solid rgba(255,255,255,.2);
+  border-radius:12px; padding:5px 12px;
+  font-family:var(--font-title); font-size:.8rem; color:#fff;
+  pointer-events:none;
+}
+
+/* ── DASHBOARD ── */
+.dashboard {
+  width:100%; max-width:520px;
+  display:flex; gap:10px; align-items:center; padding:10px 14px;
+}
+.dash-gauge {
+  flex:1; padding:8px 10px; text-align:center; border-radius:12px;
+  background:rgba(0,0,0,.3); border:1px solid rgba(255,255,255,.1);
+}
+.gauge-label { font-family:var(--font-title);font-size:.6rem;color:rgba(255,255,255,.5);letter-spacing:.06em; }
+.gauge-val   { font-family:var(--font-title);font-size:1rem;color:var(--gold); }
+
+/* ── CONTROLS ── */
+.controls {
+  width:100%; max-width:520px;
+  display:grid; grid-template-columns:repeat(3,1fr); gap:8px;
+}
+.ctrl-btn {
+  border-radius:14px; border:none; cursor:pointer; padding:14px 8px;
+  font-size:1.5rem; transition:all .1s;
+  box-shadow:0 5px 0 rgba(0,0,0,.4);
+  display:flex; flex-direction:column; align-items:center; gap:4px;
+  touch-action:manipulation;
+}
+.ctrl-btn:active { transform:translateY(4px); box-shadow:0 1px 0 rgba(0,0,0,.4); }
+.ctrl-label { font-family:var(--font-title);font-size:.65rem;color:rgba(255,255,255,.9); }
+.btn-green  { background:linear-gradient(145deg,#43a047,#2e7d32);color:#fff; }
+.btn-red    { background:linear-gradient(145deg,#e53935,#b71c1c);color:#fff; }
+.btn-yellow { background:linear-gradient(145deg,#ffb300,#e65100);color:#fff; }
+.btn-blue   { background:linear-gradient(145deg,#1e88e5,#0d47a1);color:#fff; }
+.btn-gray   { background:linear-gradient(145deg,#607d8b,#37474f);color:#fff; }
+.btn-orange { background:linear-gradient(145deg,#ff7043,#bf360c);color:#fff; }
+
+/* Pattern row */
+.pattern-row {
+  display:flex; gap:6px; justify-content:center; flex-wrap:wrap;
+  width:100%; max-width:520px;
+}
+.pattern-btn {
+  font-family:var(--font-title); font-size:.75rem; color:rgba(255,255,255,.8);
+  background:rgba(0,0,0,.3); border:1.5px solid rgba(255,255,255,.15);
+  border-radius:10px; padding:7px 14px; cursor:pointer; transition:all .15s;
+  touch-action:manipulation;
+}
+.pattern-btn.active { border-color:var(--gold);color:var(--gold);background:rgba(255,215,0,.1); }
+
+/* Engine status */
+.engine-status {
+  display:flex; align-items:center; gap:8px;
+  font-family:var(--font-title); font-size:.8rem; color:rgba(255,255,255,.7);
+  background:rgba(0,0,0,.3); border-radius:12px; padding:6px 14px;
+  border:1px solid rgba(255,255,255,.1);
+}
+.status-dot { width:10px;height:10px;border-radius:50%;background:#555; transition:background .3s; }
+.status-dot.on { background:#00e676; box-shadow:0 0 8px #00e676; }
+.status-dot.off { background:#f44336; }
+
+/* touch-action on all interactive */
+button,.ctrl-btn,.pattern-btn { touch-action:manipulation; -webkit-tap-highlight-color:transparent; }
+
+/* ── HIDDEN JOHNNY ── */
+.johnny-hide {
+  position:fixed; z-index:50;
+  cursor:pointer; touch-action:manipulation;
+  -webkit-tap-highlight-color:transparent;
+  opacity:0; /* starts invisible — fades in after 8s */
+  transition:opacity 1s;
+  animation:none;
+}
+.johnny-peek {
+  font-size:clamp(1.2rem,4vw,1.8rem);
+  display:block;
+  animation:peekBob 2s ease-in-out infinite alternate;
+  filter:drop-shadow(0 2px 4px rgba(0,0,0,.4));
+}
+@keyframes peekBob { from{transform:translateY(0) rotate(-5deg)} to{transform:translateY(-6px) rotate(5deg)} }
+.johnny-pop {
+  position:fixed; z-index:800;
+  display:flex; flex-direction:column; align-items:center; gap:6px;
+  pointer-events:none;
+}
+.johnny-emoji { font-size:clamp(3rem,12vw,5rem); animation:johnnyJump .6s cubic-bezier(.34,1.5,.64,1) forwards; }
+@keyframes johnnyJump { from{transform:scale(0) rotate(-20deg)} to{transform:scale(1) rotate(0)} }
+.johnny-shout { font-family:var(--font-title); font-size:1rem; color:var(--gold); text-shadow:0 2px 8px rgba(0,0,0,.6); white-space:nowrap; }
+</style>
+</head>
+<body class="has-basket">
+<div id="bg-layer" style="background-image:url('bg.png')"></div>
+<div id="stage-overlay"></div>
+<div id="room-hud">
+  <div class="hud-inner">
+    <button id="back-btn" onclick="CN.Room.goBack()">← Back</button>
+    <div class="hud-room-name">🚜 <span>Cub Cadet ZT1 50</span></div>
+    <div class="hud-right">
+      <button class="hud-btn" id="audioBtn" onclick="toggleAudio()">🔊</button>
+      <button class="hud-btn" onclick="CN.Room.goHome()">🏠 Map</button>
+    </div>
+  </div>
+</div>
+<div id="greeting"></div>
+
+<div id="stage">
+
+  <!-- STATUS -->
+  <div class="engine-status">
+    <div class="status-dot off" id="statusDot"></div>
+    <span id="statusText">Engine OFF — tap Start! 🔑</span>
+  </div>
+
+  <!-- LAWN CANVAS -->
+  <div class="lawn-outer">
+    <div class="lawn-wrap" id="lawnWrap">
+      <canvas id="lawnCanvas"></canvas>
+      <!-- SVG Mower (no image dependency) -->
+      <svg id="mowerEl" viewBox="0 0 120 80" xmlns="http://www.w3.org/2000/svg">
+        <!-- Body -->
+        <rect x="20" y="20" width="80" height="40" rx="8" fill="#ff6d00"/>
+        <rect x="25" y="25" width="70" height="30" rx="6" fill="#e65100"/>
+        <!-- Seat -->
+        <rect x="45" y="10" width="35" height="18" rx="6" fill="#bf360c"/>
+        <rect x="48" y="8" width="29" height="8" rx="4" fill="#ff8f00"/>
+        <!-- Cub Cadet text -->
+        <text x="60" y="43" text-anchor="middle" font-family="Arial" font-size="8" font-weight="bold" fill="white">CUB CADET</text>
+        <!-- Steering bar -->
+        <rect x="52" y="12" width="4" height="14" rx="2" fill="#333"/>
+        <rect x="40" y="12" width="28" height="4" rx="2" fill="#333"/>
+        <!-- Front wheels -->
+        <circle cx="30" cy="65" r="12" fill="#333"/>
+        <circle cx="30" cy="65" r="6" fill="#555"/>
+        <circle cx="90" cy="65" r="12" fill="#333"/>
+        <circle cx="90" cy="65" r="6" fill="#555"/>
+        <!-- Rear wheels (bigger) -->
+        <circle cx="22" cy="62" r="14" fill="#222"/>
+        <circle cx="22" cy="62" r="7" fill="#444"/>
+        <circle cx="98" cy="62" r="14" fill="#222"/>
+        <circle cx="98" cy="62" r="7" fill="#444"/>
+        <!-- Deck -->
+        <rect x="15" y="52" width="90" height="8" rx="3" fill="#ff8f00"/>
+        <!-- Headlights -->
+        <ellipse cx="28" cy="35" rx="5" ry="4" fill="#fff176" opacity=".9"/>
+        <ellipse cx="92" cy="35" rx="5" ry="4" fill="#fff176" opacity=".9"/>
+      </svg>
+      <div class="clippings-badge" id="badge">🌿 0% mowed</div>
+    </div>
+  </div>
+
+  <!-- PATTERN + DASHBOARD -->
+  <div class="pattern-row">
+    <div class="pattern-btn active" onclick="setPattern('free',this)">Free Mow</div>
+    <div class="pattern-btn" onclick="setPattern('stripes',this)">Stripes</div>
+    <div class="pattern-btn" onclick="setPattern('spiral',this)">Spiral</div>
+  </div>
+
+  <div class="dashboard glass">
+    <div class="dash-gauge"><div class="gauge-label">MOWED</div><div class="gauge-val" id="mowedPct">0%</div></div>
+    <div class="dash-gauge"><div class="gauge-label">SPEED</div><div class="gauge-val" id="speedVal">0 mph</div></div>
+    <div class="dash-gauge"><div class="gauge-label">FUEL</div><div class="gauge-val" id="fuelVal">🟢 Full</div></div>
+  </div>
+
+  <!-- CONTROLS -->
+  <div class="controls">
+    <button class="ctrl-btn btn-green"  onclick="startEngine()">🔑<div class="ctrl-label">Start</div></button>
+    <button class="ctrl-btn btn-yellow" id="driveBtn"
+      ontouchstart="startMowing(event)" onmousedown="startMowing(event)"
+      ontouchend="stopMowing()"         onmouseup="stopMowing()">
+      🚜<div class="ctrl-label">Drive + Drag</div>
+    </button>
+    <button class="ctrl-btn btn-red"    onclick="stopEngine()">🛑<div class="ctrl-label">Stop</div></button>
+    <button class="ctrl-btn btn-blue"   onclick="refuel()">⛽<div class="ctrl-label">Refuel</div></button>
+    <button class="ctrl-btn btn-orange" onclick="collectClippings()">🧺<div class="ctrl-label">Collect</div></button>
+    <button class="ctrl-btn btn-gray"   onclick="resetLawn()">🔄<div class="ctrl-label">New Lawn</div></button>
+  </div>
+
+</div>
+
+<!-- Basket Bar -->
+<div id="basket-bar-wrap">
+  <div class="basket-lbl">🧺</div>
+  <div id="basket-bar"></div>
+  <div id="coin-display">🪙 0</div>
+</div>
+<!-- Toybox Bar -->
+<div id="toybox-bar-wrap">
+  <div class="bar-row"><div class="tb-label">🧸</div><div id="toybox-bar"></div><div id="coin-display">🪙 0</div></div>
+  <div class="bar-row"><div class="tb-label">🧺</div><div id="basket-bar"></div></div>
+</div>
+
+<div id="celebrate">
+  <div class="celebrate-card">
+    <div class="celebrate-emoji" id="celEmoji">🚜</div>
+    <div class="celebrate-title" id="celTitle">Yard Done!</div>
+    <div class="celebrate-msg"   id="celMsg">Beautiful stripes!</div>
+    <button class="cn-btn cn-btn-lg" style="background:linear-gradient(135deg,#43a047,#2e7d32)"
+      onclick="hideCelebrate()">Mow Again! 🌿</button>
+  </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/gsap@3.12.5/dist/gsap.min.js"></script>
+<script src="../../shared/cn-core.js"></script>
+<script>
+'use strict';
+const ROOM_ID = 'mower';
+let CTX, W=0, H=0;
+let M = { on:false, mowing:false, mowedPct:0, fuel:100, _done:false, pattern:'free' };
+let lastX=0, lastY=0, isDragging=false;
+
+function toggleAudio(){
+  const muted=CN.Audio.toggle();
+  document.getElementById('audioBtn').textContent=muted?'🔇':'🔊';
+}
+CN.Audio.unlockOnGesture();
+
+CN.Room.init(ROOM_ID, async(saved)=>{
+  // Double rAF ensures layout is complete before reading dimensions
+  await new Promise(r=>requestAnimationFrame(()=>requestAnimationFrame(r)));
+  initLawn();
+  CN.Audio.bgStart('mower');
+  CN.Room.greet("Start the engine and drag to mow! 🚜");
+});
+
+/* ── CANVAS INIT ── */
+function initLawn(){
+  const canvas = document.getElementById('lawnCanvas');
+  const wrap   = document.getElementById('lawnWrap');
+  // Use offsetWidth which is reliable after layout
+  W = wrap.offsetWidth || 340;
+  H = Math.round(W * 0.52);
+  canvas.width  = W;
+  canvas.height = H;
+  canvas.style.height = H + 'px';
+  CTX = canvas.getContext('2d');
+  drawLawn();
+  placeMower(50, 50); // start center as %
+
+  // Pointer events work on both touch and mouse
+  wrap.addEventListener('pointerdown', e=>{ if(M.on){ isDragging=true; mowAt(e,wrap); }});
+  wrap.addEventListener('pointermove', e=>{ if(M.on&&isDragging&&M.mowing) mowAt(e,wrap); });
+  wrap.addEventListener('pointerup',   ()=>{ isDragging=false; document.getElementById('speedVal').textContent='0 mph'; });
+  wrap.addEventListener('pointercancel',()=>isDragging=false);
+}
+
+/* ── DRAW FRESH LAWN ── */
+function drawLawn(){
+  if(!CTX||!W||!H) return;
+  // Rich grass background
+  const grad = CTX.createLinearGradient(0,0,0,H);
+  grad.addColorStop(0,'#43a047');
+  grad.addColorStop(1,'#2e7d32');
+  CTX.fillStyle = grad;
+  CTX.fillRect(0,0,W,H);
+  // Grass blades texture
+  for(let i=0;i<400;i++){
+    const r=46+Math.random()*20, g=125+Math.random()*30, b=50+Math.random()*20;
+    CTX.fillStyle=`rgba(${r},${g},${b},.5)`;
+    CTX.fillRect(Math.random()*W, Math.random()*H, 1+Math.random()*3, 2+Math.random()*5);
+  }
+  M.mowedPct=0; M._done=false;
+  document.getElementById('mowedPct').textContent='0%';
+  document.getElementById('badge').textContent='🌿 0% mowed';
+}
+
+/* ── MOW AT POINTER POSITION ── */
+function mowAt(e, wrap){
+  if(!CTX) return;
+  const rect = wrap.getBoundingClientRect();
+  const scaleX = W / rect.width;
+  const scaleY = H / rect.height;
+  const x = (e.clientX - rect.left) * scaleX;
+  const y = (e.clientY - rect.top)  * scaleY;
+
+  // Move mower SVG
+  placeMower((e.clientX-rect.left)/rect.width*100, (e.clientY-rect.top)/rect.height*100);
+
+  // Draw cut stripe
+  CTX.globalCompositeOperation='source-over';
+  // Lighter grass = mowed
+  CTX.fillStyle='rgba(160,220,140,.7)';
+  CTX.beginPath();
+  CTX.ellipse(x, y, 26, 18, 0, 0, Math.PI*2);
+  CTX.fill();
+  // Stripe lines
+  CTX.strokeStyle='rgba(180,240,160,.4)';
+  CTX.lineWidth=2;
+  CTX.beginPath();
+  CTX.moveTo(x-20,y); CTX.lineTo(x+20,y);
+  CTX.stroke();
+
+  // Speed readout
+  const speed = (3+Math.random()*4).toFixed(1);
+  document.getElementById('speedVal').textContent = speed+' mph';
+
+  // Occasional mowing sound
+  if(Math.random()<.12) CN.Audio.play('mowing');
+
+  calcMowed(x,y);
+  e.preventDefault();
+}
+
+function placeMower(xPct, yPct){
+  const el = document.getElementById('mowerEl');
+  const wrap = document.getElementById('lawnWrap');
+  const rect = wrap.getBoundingClientRect();
+  if(window.gsap){
+    gsap.to(el,{
+      left:xPct+'%', top:yPct+'%',
+      duration:.1, ease:'power2.out', overwrite:'auto'
+    });
+  } else {
+    el.style.left = xPct+'%';
+    el.style.top  = yPct+'%';
+  }
+}
+
+function calcMowed(x,y){
+  // Sample pixels around mow point
+  const sample = CTX.getImageData(0,0,W,H).data;
+  let light=0, total=0;
+  for(let i=0;i<sample.length;i+=20){
+    total++;
+    // Light = mowed (high green, high red)
+    if(sample[i]>140 && sample[i+1]>180) light++;
+  }
+  M.mowedPct = Math.min(100, Math.round(light/total*100*1.8));
+  document.getElementById('mowedPct').textContent=M.mowedPct+'%';
+  document.getElementById('badge').textContent='🌿 '+M.mowedPct+'% mowed';
+
+  if(M.mowedPct>=85 && !M._done){
+    M._done=true;
+    CN.FX.haptic('success');
+    CN.Audio.play('celebrate');
+    showCelebrate('🚜','Yard Done!','What beautiful mowing! 🌿✨');
+  }
+}
+
+/* ── ENGINE ── */
+function startEngine(){
+  if(M.on){ CN.Room.greet('Engine already running! 🚜'); return; }
+  if(M.fuel<=0){ CN.Room.greet('Out of fuel! Tap ⛽ to refuel!'); return; }
+  M.on=true;
+  document.getElementById('statusDot').className='status-dot on';
+  document.getElementById('statusText').textContent='Engine ON — drag to mow! 🚜';
+  CN.Audio.play('engineStart'); CN.FX.haptic('drill');
+  if(window.gsap) gsap.fromTo('#mowerEl',{rotation:-3},{rotation:3,duration:.07,yoyo:true,repeat:8,ease:'none'});
+  CN.Room.greet('Vroom! Engine on! Hold Drive and drag to mow! 🚜');
+}
+
+function startMowing(e){ e.preventDefault(); if(M.on){ M.mowing=true; CN.FX.haptic('tap'); } }
+function stopMowing(){ M.mowing=false; document.getElementById('speedVal').textContent='0 mph'; }
+
+function stopEngine(){
+  M.on=false; M.mowing=false; isDragging=false;
+  document.getElementById('statusDot').className='status-dot off';
+  document.getElementById('statusText').textContent='Engine OFF — tap Start! 🔑';
+  document.getElementById('speedVal').textContent='0 mph';
+  CN.Room.greet('Engine off. Nice work! 🌿');
+}
+
+function refuel(){
+  M.fuel=100;
+  document.getElementById('fuelVal').textContent='🟢 Full';
+  CN.Audio.play('tap'); CN.FX.haptic('tap');
+  CN.Room.greet('Fueled up and ready! ⛽');
+}
+
+function resetLawn(){
+  M._done=false; M.mowedPct=0;
+  drawLawn();
+  CN.Room.greet('Fresh lawn! Time to mow! 🌱');
+}
+
+function setPattern(p,btn){
+  M.pattern=p;
+  document.querySelectorAll('.pattern-btn').forEach(b=>b.classList.remove('active'));
+  btn.classList.add('active');
+}
+
+async function collectClippings(){
+  if(M.mowedPct<15){ CN.Room.greet('Mow more first! 🌿'); return; }
+  const slot=await CN.Toybox.add({type:'clippings',emoji:'🌿',name:'Grass Clippings',origin:ROOM_ID,data:{pct:M.mowedPct}});
+  if(slot>=0){
+    CN.renderBothBars(); CN.FX.haptic('success'); CN.Audio.play('collect');
+    CN.Room.greet('🌿 Clippings in toybox slot '+(slot+1)+'! 🎒');
+  } else { CN.Room.greet('Toybox full! 🧸'); }
+}
+
+function showCelebrate(e,t,m){
+  document.getElementById('celEmoji').textContent=e;
+  document.getElementById('celTitle').textContent=t;
+  document.getElementById('celMsg').textContent=m;
+  document.getElementById('celebrate').classList.add('show');
+  if(window.gsap) CN.Anim.celebrateIn(document.querySelector('.celebrate-card'));
+  (window.gsap?CN.Anim.confettiBurst(window.innerWidth/2,window.innerHeight*.3,30):CN.FX.confetti(30));
+}
+
+function hideCelebrate(){
+  const ov=document.getElementById('celebrate');
+  const cd=document.querySelector('.celebrate-card');
+  if(window.gsap&&cd){ CN.Anim.celebrateOut(cd,ov); } else { ov.classList.remove('show'); }
+}
+
+document.addEventListener('DOMContentLoaded',()=>{
+  try{ if(localStorage.getItem('cn_muted')==='1') document.getElementById('audioBtn').textContent='🔇'; }catch(e){}
+  setTimeout(()=>{ const t=document.getElementById('editor-toggle'); if(t){t.style.opacity='0';t.style.pointerEvents='none';} },6000);
+});
+</script>
+
+<!-- ══ HIDDEN JOHNNY ══ -->
+<div id="johnnyHide" class="johnny-hide" style="right:3%;bottom:22%" onclick="findJohnny()" title="Who's hiding?">
+  <span class="johnny-peek">👀</span>
+</div>
+<div id="johnnyPop" class="johnny-pop" style="display:none">
+  <span class="johnny-emoji">👦</span>
+  <div class="johnny-shout">Found me! 😄 (behind the shed)</div>
+</div>
+
+<script>
+/* ══ HIDDEN JOHNNY ══ */
+let _johnnyFound = false;
+(function initJohnny(){
+  // Fade in after 8s so player has time to explore first
+  setTimeout(()=>{
+    const el=document.getElementById('johnnyHide');
+    if(el && !_johnnyFound) el.style.opacity='1';
+  }, 8000);
+})();
+
+function findJohnny(){
+  if(_johnnyFound) return;
+  _johnnyFound = true;
+  const hide=document.getElementById('johnnyHide');
+  const pop =document.getElementById('johnnyPop');
+  if(!hide||!pop) return;
+
+  hide.style.opacity='0';
+  hide.style.pointerEvents='none';
+
+  // Position pop where hide was
+  const rect=hide.getBoundingClientRect();
+  pop.style.cssText=`position:fixed;left:${rect.left}px;top:${rect.top-40}px;z-index:800;display:flex;flex-direction:column;align-items:center;gap:6px;pointer-events:none;`;
+  pop.style.display='flex';
+
+  CN.Audio.play('celebrate'); CN.FX.haptic('success');
+  CN.Coins.add(5,'found_johnny'); renderToyboxBar();
+  CN.Room.greet("You found Johnny! 👦 +5 🪙 Golden coins!");
+
+  // Burst stars from his position
+  CN.FX.stars(rect.left+rect.width/2, rect.top, 12, ['⭐','🌟','💫','✨','🎉','👦']);
+
+  if(window.gsap){
+    gsap.timeline()
+      .from(pop.querySelector('.johnny-emoji'),{scale:0,rotation:-20,duration:.5,ease:'back.out(3)'})
+      .from(pop.querySelector('.johnny-shout'),{y:10,opacity:0,duration:.3},'-=.2')
+      .to(pop,{y:-30,opacity:0,duration:.6,delay:2,ease:'power2.in',onComplete:()=>pop.style.display='none'});
+  } else {
+    setTimeout(()=>pop.style.display='none', 2500);
+  }
+}
+
+</script>
+
+<!-- Quick room nav -->
+<button id="room-nav-btn" onclick="toggleRoomNav()" title="Switch Room">🗺</button>
+<div id="room-nav-panel">
+  <div style="font-family:'Fredoka One',cursive;font-size:.58rem;color:rgba(255,255,255,.4);text-align:center;padding:4px 0 2px;letter-spacing:.06em;text-transform:uppercase">Jump To Room</div>
+  <button style="display:flex;align-items:center;gap:10px;padding:9px 12px;border-radius:13px;cursor:pointer;touch-action:manipulation;border:none;background:transparent;width:100%;text-align:left;color:#fff;font-family:'Fredoka One',cursive;font-size:.72rem;transition:background .12s" onmouseenter="this.style.background='rgba(255,255,255,.1)'" onmouseleave="this.style.background='transparent'" ontouchstart="this.style.background='rgba(255,255,255,.1)'" ontouchend="this.style.background='transparent'" onclick="roomNavTo('home')"><span style="font-size:1.3rem;flex-shrink:0">🏡</span> Cathy's Home</button>
+  <button style="display:flex;align-items:center;gap:10px;padding:9px 12px;border-radius:13px;cursor:pointer;touch-action:manipulation;border:none;background:transparent;width:100%;text-align:left;color:#fff;font-family:'Fredoka One',cursive;font-size:.72rem;transition:background .12s" onmouseenter="this.style.background='rgba(255,255,255,.1)'" onmouseleave="this.style.background='transparent'" ontouchstart="this.style.background='rgba(255,255,255,.1)'" ontouchend="this.style.background='transparent'" onclick="roomNavTo('kitchen')"><span style="font-size:1.3rem;flex-shrink:0">🍳</span> Little Chef's Kitchen</button>
+  <button style="display:flex;align-items:center;gap:10px;padding:9px 12px;border-radius:13px;cursor:pointer;touch-action:manipulation;border:none;background:transparent;width:100%;text-align:left;color:#fff;font-family:'Fredoka One',cursive;font-size:.72rem;transition:background .12s" onmouseenter="this.style.background='rgba(255,255,255,.1)'" onmouseleave="this.style.background='transparent'" ontouchstart="this.style.background='rgba(255,255,255,.1)'" ontouchend="this.style.background='transparent'" onclick="roomNavTo('salon')"><span style="font-size:1.3rem;flex-shrink:0">💅</span> Royal Salon</button>
+  <button style="display:flex;align-items:center;gap:10px;padding:9px 12px;border-radius:13px;cursor:pointer;touch-action:manipulation;border:none;background:transparent;width:100%;text-align:left;color:#fff;font-family:'Fredoka One',cursive;font-size:.72rem;transition:background .12s" onmouseenter="this.style.background='rgba(255,255,255,.1)'" onmouseleave="this.style.background='transparent'" ontouchstart="this.style.background='rgba(255,255,255,.1)'" ontouchend="this.style.background='transparent'" onclick="roomNavTo('garage')"><span style="font-size:1.3rem;flex-shrink:0">🔧</span> Garage Workshop</button>
+  <button style="display:flex;align-items:center;gap:10px;padding:9px 12px;border-radius:13px;cursor:pointer;touch-action:manipulation;border:none;background:transparent;width:100%;text-align:left;color:#fff;font-family:'Fredoka One',cursive;font-size:.72rem;transition:background .12s" onmouseenter="this.style.background='rgba(255,255,255,.1)'" onmouseleave="this.style.background='transparent'" ontouchstart="this.style.background='rgba(255,255,255,.1)'" ontouchend="this.style.background='transparent'" onclick="roomNavTo('driveway')"><span style="font-size:1.3rem;flex-shrink:0">🚗</span> Driveway</button>
+  <button style="display:flex;align-items:center;gap:10px;padding:9px 12px;border-radius:13px;cursor:pointer;touch-action:manipulation;border:none;background:transparent;width:100%;text-align:left;color:#fff;font-family:'Fredoka One',cursive;font-size:.72rem;transition:background .12s" onmouseenter="this.style.background='rgba(255,255,255,.1)'" onmouseleave="this.style.background='transparent'" ontouchstart="this.style.background='rgba(255,255,255,.1)'" ontouchend="this.style.background='transparent'" onclick="roomNavTo('pond')"><span style="font-size:1.3rem;flex-shrink:0">🐘</span> The Pond</button>
+  <button style="display:flex;align-items:center;gap:10px;padding:9px 12px;border-radius:13px;cursor:pointer;touch-action:manipulation;border:none;background:transparent;width:100%;text-align:left;color:#fff;font-family:'Fredoka One',cursive;font-size:.72rem;transition:background .12s" onmouseenter="this.style.background='rgba(255,255,255,.1)'" onmouseleave="this.style.background='transparent'" ontouchstart="this.style.background='rgba(255,255,255,.1)'" ontouchend="this.style.background='transparent'" onclick="roomNavTo('garden')"><span style="font-size:1.3rem;flex-shrink:0">🥕</span> The Garden</button>
+  <button style="display:flex;align-items:center;gap:10px;padding:9px 12px;border-radius:13px;cursor:pointer;touch-action:manipulation;border:none;background:transparent;width:100%;text-align:left;color:#fff;font-family:'Fredoka One',cursive;font-size:.72rem;transition:background .12s" onmouseenter="this.style.background='rgba(255,255,255,.1)'" onmouseleave="this.style.background='transparent'" ontouchstart="this.style.background='rgba(255,255,255,.1)'" ontouchend="this.style.background='transparent'" onclick="roomNavTo('construction')"><span style="font-size:1.3rem;flex-shrink:0">🏗️</span> Alphabet Construction</button>
+  <button style="display:flex;align-items:center;gap:10px;padding:9px 12px;border-radius:13px;cursor:pointer;touch-action:manipulation;border:none;background:transparent;width:100%;text-align:left;color:#fff;font-family:'Fredoka One',cursive;font-size:.72rem;transition:background .12s" onmouseenter="this.style.background='rgba(255,255,255,.1)'" onmouseleave="this.style.background='transparent'" ontouchstart="this.style.background='rgba(255,255,255,.1)'" ontouchend="this.style.background='transparent'" onclick="roomNavTo('music')"><span style="font-size:1.3rem;flex-shrink:0">🎵</span> Music Lab</button>
+  <div style="height:1px;background:rgba(255,255,255,.08);margin:2px 6px"></div>
+  <button style="display:flex;align-items:center;gap:10px;padding:9px 12px;border-radius:13px;cursor:pointer;touch-action:manipulation;border:none;background:transparent;width:100%;color:#fff;font-family:'Fredoka One',cursive;font-size:.72px;justify-content:center;transition:background .12s" onmouseenter="this.style.background='rgba(255,255,255,.1)'" onmouseleave="this.style.background='transparent'" onclick="CN.Room.goHome()">
+    <span style="font-size:1.3rem">🗺️</span> Back to Map
+  </button>
+</div>
+<script>
+var _rnOpen=false;
+function toggleRoomNav(){_rnOpen=!_rnOpen;var p=document.getElementById('room-nav-panel');p.style.display=_rnOpen?'flex':'none';document.getElementById('room-nav-btn').style.background=_rnOpen?'linear-gradient(135deg,#dc2626,#991b1b)':'linear-gradient(135deg,#7c3aed,#4c1d95)';}
+function roomNavTo(id){_rnOpen=false;document.getElementById('room-nav-panel').style.display='none';window.location.href='../'+id+'/index.html';}
+document.addEventListener('pointerdown',function(e){if(_rnOpen&&!e.target.closest('#room-nav-btn')&&!e.target.closest('#room-nav-panel')){_rnOpen=false;document.getElementById('room-nav-panel').style.display='none';}});
+</script>
+</body>
+</html>
